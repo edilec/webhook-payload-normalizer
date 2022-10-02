@@ -1,0 +1,11 @@
+{
+  "event_id": "01HQBETA92",
+  "meta": { "schema": "2024-05-01" },
+  "type": "order.refunded",
+  "occurred_at": "2026-01-05T10:00:00Z",
+  "refund": {
+    "reference": "ORD-5521",
+    "amount_minor": 1000
+  },
+  "note": "partial refund raised by support"
+}
