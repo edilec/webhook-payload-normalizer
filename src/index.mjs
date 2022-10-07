@@ -357,15 +357,16 @@ export async function normalizeJob(job, options = {}) {
   const collector = createCollector(label)
   const counts = emptyCounts()
 
-  const validated = validateJob(job)
-  const limits = { ...validated.limits }
+  const overrides = {}
   for (const [name, value] of Object.entries(options.limits ?? {})) {
     if (!Object.hasOwn(DEFAULT_LIMITS, name)) throw new TypeError(`Unknown limit "${name}"`)
     if (!Number.isInteger(value) || value < 1 || value > HARD_LIMITS[name]) {
       throw new TypeError(`Limit "${name}" must be an integer between 1 and ${HARD_LIMITS[name]}`)
     }
-    limits[name] = value
+    overrides[name] = value
   }
+  const validated = validateJob(job, overrides)
+  const limits = validated.limits
   const budget = createBudget(limits.maxSteps)
 
   for (const row of validated.problems) record(collector, row)

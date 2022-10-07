@@ -515,15 +515,24 @@ function validateEquivalence(raw, events, problems) {
  * anything at all was refused: a job this tool did not fully understand is a
  * job it will not act on.
  */
-export function validateJob(job) {
+export function validateJob(job, overrides = {}) {
   const problems = []
   if (!isRecord(job)) {
     problem(problems, '/', 'The job must be a JSON object.')
-    return { ok: false, problems, value: null, limits: { ...DEFAULT_LIMITS } }
+    return { ok: false, problems, value: null, limits: { ...DEFAULT_LIMITS, ...overrides } }
   }
   unknownKeys(problems, job, JOB_KEYS, '')
 
-  const limits = applyLimits(job.limits, problems)
+  /**
+   * Caller overrides win over the job's own limits, and they are applied here
+   * rather than after validation.
+   *
+   * Applying them afterwards is the shape of a limit that is documented,
+   * accepted on the command line and never enforced: `--max-events 1` would
+   * reach the engine while the *validator* had already decided how many
+   * fixtures to keep, using a number nobody asked for.
+   */
+  const limits = { ...applyLimits(job.limits, problems), ...overrides }
 
   if (typeof job.canonicalVersion !== 'string' || !VERSION.test(job.canonicalVersion)) {
     problem(problems, '/canonicalVersion', '"canonicalVersion" must match [A-Za-z0-9][A-Za-z0-9._-]{0,31}.')
