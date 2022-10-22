@@ -176,6 +176,54 @@ test('a forbidden character in an event name reaches the report only through evi
   }
 })
 
+/**
+ * The job is untrusted text too.
+ *
+ * A pointer is written by whoever wrote the job, and this tool quotes it back
+ * into the *message* of the finding that refuses it -- not only into the
+ * evidence. A guard that sanitised the evidence and trusted the message would
+ * pass every test above and still let a control character through here, which
+ * is exactly the shape of the excerpt-only guard this catalog has seen fail.
+ */
+test('a forbidden character in a job pointer is sanitised in the message, not only the evidence', async () => {
+  for (const [name, code] of FORBIDDEN) {
+    const viaField = await normalizeJob({
+      canonicalVersion: '1',
+      providers: [PROVIDER],
+      mappings: [{ ...MAPPING, fields: [{ from: `/absent${CHAR(code)}field`, to: 'orderId', as: 'string' }] }],
+      events: [{ ref: 'e1', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created' } }],
+    })
+
+    const required = viaField.findings.find((finding) => finding.ruleId === 'field-required-missing')
+    assert.notEqual(required, undefined)
+    assert.deepEqual(scan(required.message), [], `${name} survived into a finding message`)
+    assert.deepEqual(scanReport(viaField), [], `${name} survived through a mapping pointer`)
+
+    const viaSourceId = await normalizeJob({
+      canonicalVersion: '1',
+      providers: [PROVIDER],
+      mappings: [{ ...MAPPING, sourceId: `/absent${CHAR(code)}id` }],
+      events: [{ ref: 'e1', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created', data: { order_id: 'O1' } } }],
+    })
+
+    const anonymous = viaSourceId.findings.find((finding) => finding.ruleId === 'source-id-missing')
+    assert.notEqual(anonymous, undefined)
+    assert.deepEqual(scan(anonymous.message), [], `${name} survived into a source-id message`)
+
+    const viaVersionAt = await normalizeJob({
+      canonicalVersion: '1',
+      providers: [{ name: 'acme', versionAt: `/absent${CHAR(code)}version`, typeAt: '/event' }],
+      mappings: [MAPPING],
+      events: [{ ref: 'e1', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created', data: { order_id: 'O1' } } }],
+    })
+
+    const unresolved = viaVersionAt.findings.find((finding) => finding.ruleId === 'event-version-unresolved')
+    assert.notEqual(unresolved, undefined)
+    assert.deepEqual(scan(unresolved.message), [], `${name} survived into a version message`)
+    assert.deepEqual(scanReport(viaVersionAt), [], `${name} survived through a provider pointer`)
+  }
+})
+
 test('an identifier carrying a newline cannot forge a line in the human report', async () => {
   const base = await mkdtemp(join(tmpdir(), 'webhook-payload-normalizer-sanitise-'))
   try {

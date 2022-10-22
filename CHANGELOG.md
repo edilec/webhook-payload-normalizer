@@ -79,12 +79,12 @@ All notable changes to this project are documented in this file.
   printed severity word as literals at the assertion. Flipping a rule in the frozen table, in the
   documented catalog and in every list of expectations in the tests, all at once, is caught for all
   36 error rules and in both directions for the 7 that are not errors.
-- Ordering is pinned by what the tool emits. An English collator substituted at each comparison in
-  turn changes the emitted order at nine sites, and each of those is caught by a fixture whose
-  collation order and code-unit order disagree — `Z` against `a`, `a-b` against `a_b`. The tenth
-  orders rule ids over `[a-z0-9-]`, an alphabet on which collation and code units agree on all 1806
-  ordered pairs; that is enumerated in `test/finding-order.test.mjs` and recorded as an equivalent
-  mutant rather than counted as coverage.
+- Ordering is pinned by what the tool emits. Eleven call sites order something that reaches output.
+  An English collator substituted at each of them in turn is caught at ten, by fixtures whose
+  collation order and code-unit order disagree — `Z` against `a`, `a-b` against `a_b`. The
+  eleventh orders rule ids over `[a-z0-9-]`, an alphabet on which collation and code units agree on
+  all 1806 ordered pairs; that is enumerated in `test/finding-order.test.mjs` and recorded as an
+  equivalent mutant rather than counted as coverage.
 - Each guarantee above was removed in turn and the failure watched — demoting a severity,
   substituting a collator, dropping the C1 range from the strip set, replacing real-path
   containment with a prefix test, replacing the device-and-inode identity test with a real-path

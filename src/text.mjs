@@ -17,8 +17,8 @@
  * precede `a_b`, and `README` must precede `assets`, on every machine, for
  * ever.
  *
- * Pinning this function is not pinning the tool: each of the ten call sites can
- * be swapped on its own. `test/finding-order.test.mjs` drives values whose
+ * Pinning this function is not pinning the tool: each of the eleven call sites
+ * can be swapped on its own. `test/finding-order.test.mjs` drives values whose
  * collation order and code-unit order disagree through the real binary at every
  * site, and enumerates the one site whose alphabet makes both orders identical.
  */

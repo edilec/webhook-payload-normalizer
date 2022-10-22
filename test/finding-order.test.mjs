@@ -19,8 +19,8 @@ const CLI = join(projectDirectory, 'bin/webhook-payload-normalizer.mjs')
  * Scanning the source for a comparator name proves nothing: `Intl.Collator`
  * collates like `localeCompare` and spells like neither, and either of them can
  * be substituted at one call site at a time while the grep stays green. Pinning
- * `byCodeUnit` itself proves nothing either, for the same reason -- ten call
- * sites, each swappable on its own.
+ * `byCodeUnit` itself proves nothing either, for the same reason -- eleven
+ * call sites, each swappable on its own.
  *
  * So each test below drives values whose collation order and code-unit order
  * genuinely disagree through the real binary, at one site, and pins the exact
@@ -360,6 +360,32 @@ test('an equivalence mismatch names the first differing field in code units', as
   assert.equal(code, 1)
   assert.equal(mismatch.length, 1)
   assert.equal(mismatch[0].evidence, 'data/Z')
+})
+
+/**
+ * Site 11 -- the list of known versions a refusal offers as a suggestion.
+ *
+ * A version string may hold a dot, a dash or an underscore, so this list is as
+ * capable of collating differently as any other, and it reaches the reader of
+ * the report as advice about what to do next.
+ */
+test('the known versions named in a refusal order in code units', async () => {
+  const { code, report } = await normalize(writeJob({
+    canonicalVersion: '1',
+    providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
+    mappings: [
+      { provider: 'acme', version: 'a_b', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
+      { provider: 'acme', version: 'a', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
+      { provider: 'acme', version: 'a-b', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
+      { provider: 'acme', version: 'Z', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
+    ],
+    events: [{ ref: 'ok', provider: 'acme', payload: { id: 'A1', api_version: 'zz', event: 'e', v: 'x' } }],
+  }))
+  const refusal = report.findings.filter((finding) => finding.ruleId === 'mapping-version-unknown')
+
+  assert.equal(code, 1)
+  assert.equal(refusal.length, 1)
+  assert.equal(refusal[0].suggestion, 'Write a mapping for this version. Versions with a mapping: Z, a, a-b, a_b.')
 })
 
 /**
