@@ -45,7 +45,7 @@ One finding per unclaimed field. The field's pointer is the finding's `evidence`
 | Rule | Severity | Raised when |
 | --- | --- | --- |
 | `equivalence-mismatch` | `error` | Two fixtures a group claims are equivalent produced different canonical bodies. The `evidence` names the first field that differs. |
-| `equivalence-unresolved` | `error` | A group names a fixture that produced no canonical event, so whether the group holds was not established. Also sets `incomplete`. |
+| `equivalence-unresolved` | `error` | Whether the group holds was not established: it names a fixture that produced no canonical event, or the `maxSteps` budget ran out before the group's comparisons were finished. A group compared only in part is reported here, never as `equivalence-confirmed` and never as `equivalence-mismatch`. Also sets `incomplete`, and the group's `match` in the bundle is `null`. |
 | `equivalence-confirmed` | `info` | Every fixture in the group produced the same canonical body. |
 
 ### Text
@@ -104,7 +104,7 @@ Each of these also sets `incomplete`. A bound that was hit is never a smaller an
 | `limit-payload-depth-exceeded` | `error` | A payload nests deeper than `maxPayloadDepth`, so whether the fields below that depth are unclaimed was not established. |
 | `limit-unknown-fields-exceeded` | `error` | A payload has more unclaimed fields than `maxUnknownFields`. |
 | `limit-value-chars-exceeded` | `error` | A mapped value is longer than `maxValueChars`. It is not truncated. |
-| `limit-steps-exceeded` | `error` | The run reached the `maxSteps` work budget and stopped. |
+| `limit-steps-exceeded` | `error` | The run reached the `maxSteps` work budget and stopped, in the fixture loop or in the equivalence loop. The budget is re-read after both, so a sweep the budget cut short cannot leave a verdict behind. |
 | `limit-findings-exceeded` | `error` | The run produced more findings than `maxFindings`; the report is partial and says so. |
 
 | Rule | Severity | Raised when |

@@ -548,16 +548,6 @@ export async function normalizeJob(job, options = {}) {
     normalized.set(event.ref, emitted)
   }
 
-  if (budget.exhausted) {
-    record(collector, {
-      pointer: '/events',
-      ruleId: 'limit-steps-exceeded',
-      message: `This run reached the maxSteps budget of ${limits.maxSteps} and stopped. The fixtures after that point were not examined, so this report is partial.`,
-      suggestion: 'Raise limits.maxSteps, or split the job.',
-    })
-    collector.incomplete = true
-  }
-
   for (const mapping of declared.mappings) {
     if (used.has(mapping.key)) continue
     record(collector, {
@@ -568,27 +558,60 @@ export async function normalizeJob(job, options = {}) {
     })
   }
 
+  /**
+   * The equivalence verdicts, and the budget that can stop them halfway.
+   *
+   * `match` starts at `true` and only a completed sweep of the group can leave
+   * it there, so the budget has to be accounted for at both loops rather than
+   * broken out of. An inner `break` that fell through to the `if (match)` below
+   * would record "this group holds" on comparisons that never ran -- a positive
+   * claim about work the run did not do, written into the report and into the
+   * `--out` bundle. Every way this loop can stop early therefore lands on
+   * `equivalence-unresolved` and `match: null`: a comparison that stopped
+   * halfway is not a group that holds, and it is not a mismatch either. Groups
+   * the loop never reached at all are listed too, so the bundle never quietly
+   * omits a claim rather than answering it.
+   */
   const equivalence = []
   for (const group of declared.equivalence) {
-    if (!budget.spend()) break
-    const missing = group.refs.filter((ref) => !normalized.has(ref))
-    if (missing.length > 0) {
+    const unresolved = (message, evidence, suggestion) => {
       record(collector, {
         pointer: `/equivalence/${group.index}`,
         ruleId: 'equivalence-unresolved',
-        message: `Equivalence group "${sanitize(group.id, 60)}" names ${missing.length} fixture(s) that produced no canonical event, so whether the group agrees is not something this run established.`,
-        evidence: missing.map((ref) => sanitize(ref, 40)).join(' '),
-        suggestion: 'Fix the findings for those fixtures; an unchecked equivalence is not a satisfied one.',
+        message,
+        evidence,
+        suggestion,
       })
       collector.incomplete = true
       equivalence.push({ id: group.id, refs: [...group.refs], match: null })
+    }
+    const refList = group.refs.map((ref) => sanitize(ref, 40)).join(' ')
+
+    if (!budget.spend()) {
+      unresolved(
+        `Equivalence group "${sanitize(group.id, 60)}" was never compared: this run reached the maxSteps budget of ${limits.maxSteps} before it got here, so whether the group agrees is not something this run established.`,
+        refList,
+        'Raise limits.maxSteps, or split the job; an equivalence nobody compared is not a satisfied one.',
+      )
+      continue
+    }
+
+    const missing = group.refs.filter((ref) => !normalized.has(ref))
+    if (missing.length > 0) {
+      unresolved(
+        `Equivalence group "${sanitize(group.id, 60)}" names ${missing.length} fixture(s) that produced no canonical event, so whether the group agrees is not something this run established.`,
+        missing.map((ref) => sanitize(ref, 40)).join(' '),
+        'Fix the findings for those fixtures; an unchecked equivalence is not a satisfied one.',
+      )
       continue
     }
 
     const [first, ...rest] = group.refs
     let match = true
+    let compared = 0
     for (const ref of rest) {
       if (!budget.spend()) break
+      compared += 1
       const verdict = compareCanonical(normalized.get(first).canonical, normalized.get(ref).canonical)
       if (verdict.equal) continue
       match = false
@@ -600,15 +623,43 @@ export async function normalizeJob(job, options = {}) {
         suggestion: 'Correct the mapping for one of the two providers, or drop the claim that they are equivalent.',
       })
     }
+
+    if (compared < rest.length) {
+      unresolved(
+        `Equivalence group "${sanitize(group.id, 60)}" got through ${compared} of its ${rest.length} comparison(s) before this run reached the maxSteps budget of ${limits.maxSteps}, so whether the group agrees is not something this run established.`,
+        refList,
+        'Raise limits.maxSteps, or split the job; a comparison that stopped halfway is not a group that holds.',
+      )
+      continue
+    }
+
     if (match) {
       record(collector, {
         pointer: `/equivalence/${group.index}`,
         ruleId: 'equivalence-confirmed',
         message: `Equivalence group "${sanitize(group.id, 60)}" holds: all ${group.refs.length} fixtures normalized to the same canonical body, differing only in the provenance this tool keeps separate.`,
-        evidence: group.refs.map((ref) => sanitize(ref, 40)).join(' '),
+        evidence: refList,
       })
     }
     equivalence.push({ id: group.id, refs: [...group.refs], match })
+  }
+
+  /**
+   * The budget, re-read after every loop that could have exhausted it.
+   *
+   * Checked before the equivalence loop instead, this finding records the
+   * fixtures the events loop skipped and stays silent about an equivalence
+   * sweep the same budget cut short -- which is how a run with an unexamined
+   * claim in it reached `pass` with no finding saying so.
+   */
+  if (budget.exhausted) {
+    record(collector, {
+      pointer: '/events',
+      ruleId: 'limit-steps-exceeded',
+      message: `This run reached the maxSteps budget of ${limits.maxSteps} and stopped. The work past that point -- fixtures left to normalize and equivalence groups left to compare alike -- was not done, so this report is partial.`,
+      suggestion: 'Raise limits.maxSteps, or split the job.',
+    })
+    collector.incomplete = true
   }
 
   /**

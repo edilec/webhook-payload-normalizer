@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -86,6 +86,64 @@ test('an equivalence nobody could check is incomplete, not a satisfied claim', a
   assert.equal(exitCodeFor(report), 2)
   assert.deepEqual(report.normalization.equivalence, [{ id: 'group', refs: ['good', 'bad'], match: null }])
   assert.notEqual(report.normalization.equivalence[0].match, true, 'an unchecked equivalence must never read as a held one')
+})
+
+test('an equivalence the budget cut short is unresolved, never a group that holds', async () => {
+  const events = [
+    { ref: 'one', provider: 'acme', payload: PAYLOAD },
+    { ref: 'two', provider: 'acme', payload: { ...PAYLOAD, id: 'A2', data: { order_id: 'O2' } } },
+  ]
+  const claim = { equivalence: [{ id: 'group', refs: ['one', 'two'] }] }
+
+  const whole = await normalizeJob(job(events, claim))
+  assert.equal(whole.status, 'fail', 'with the whole budget the group is compared and it does not hold')
+  assert.equal(whole.findings.some((finding) => finding.ruleId === 'equivalence-mismatch'), true)
+  assert.deepEqual(whole.normalization.equivalence, [{ id: 'group', refs: ['one', 'two'], match: false }])
+
+  /**
+   * Every budget short of the whole run stops the work somewhere -- in the
+   * fixture loop, between the two comparisons, or before the group is reached
+   * at all. None of them may leave a verdict behind: this group genuinely does
+   * not hold, so a run that reports it as held is not merely incomplete, it is
+   * wrong, and `--out` would write that claim to a file.
+   */
+  for (let maxSteps = 1; maxSteps < whole.summary.steps; maxSteps += 1) {
+    const cut = await normalizeJob(job(events, claim), { limits: { maxSteps } })
+    const ruleIds = cut.findings.map((finding) => finding.ruleId)
+
+    assert.equal(cut.status, 'incomplete', `maxSteps ${maxSteps}: a run the budget stopped is incomplete`)
+    assert.equal(exitCodeFor(cut), 2, `maxSteps ${maxSteps}: evidence nobody obtained exits 2`)
+    assert.equal(ruleIds.includes('limit-steps-exceeded'), true, `maxSteps ${maxSteps}: the budget that stopped the run is named`)
+    assert.equal(ruleIds.includes('equivalence-confirmed'), false, `maxSteps ${maxSteps}: a comparison that never ran confirms nothing`)
+    for (const verdict of cut.normalization.equivalence) {
+      assert.equal(verdict.match, null, `maxSteps ${maxSteps}: an unfinished comparison reads as null, not true and not false`)
+      assert.equal(ruleIds.includes('equivalence-unresolved'), true, `maxSteps ${maxSteps}: the unfinished group says so`)
+    }
+  }
+})
+
+test('a bundle is never written carrying an equivalence verdict the budget cut short', async () => {
+  await withBase(async (base) => {
+    const events = [
+      { ref: 'one', provider: 'acme', payload: PAYLOAD },
+      { ref: 'two', provider: 'acme', payload: { ...PAYLOAD, id: 'A2', data: { order_id: 'O2' } } },
+    ]
+    const claim = { equivalence: [{ id: 'group', refs: ['one', 'two'] }] }
+    const whole = await normalizeJob(job(events, claim))
+
+    for (let maxSteps = 1; maxSteps < whole.summary.steps; maxSteps += 1) {
+      const outPath = join(base, `bundle-${maxSteps}.json`)
+      const cut = await normalizeJob(job(events, claim), { limits: { maxSteps }, outPath })
+
+      assert.equal(cut.status, 'incomplete', `maxSteps ${maxSteps}`)
+      assert.equal(
+        cut.findings.some((finding) => finding.ruleId === 'output-withheld'),
+        true,
+        `maxSteps ${maxSteps}: a partial run withholds its bundle and says so`,
+      )
+      await assert.rejects(readFile(outPath), { code: 'ENOENT' }, `maxSteps ${maxSteps}: nothing was written`)
+    }
+  })
 })
 
 test('a job that could not be read reports which input, and does not pass', async () => {
