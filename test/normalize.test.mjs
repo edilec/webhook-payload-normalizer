@@ -170,6 +170,51 @@ test('a source event name is matched exactly: order.created is not order_created
   assert.deepEqual(report.findings.filter((finding) => finding.severity === 'error').map((finding) => finding.ruleId), ['mapping-event-unknown'])
 })
 
+test('a source event name known under another version is not borrowed across versions', async () => {
+  /**
+   * The one axis the exact-match rule is really about. Provider `acme` declares
+   * `order_created` under version 1 and `order_refunded` under version 2, and
+   * the payload is a version 2 `order_created`: an event name this provider
+   * does have a mapping for, under a version this payload is not. Any fallback
+   * that matched on `(provider, sourceType)` and let the version go would find
+   * the version 1 rules and read `/data/total_cents` out of a version 2
+   * payload -- the mis-map this tool exists to refuse, and the one that leaves
+   * no trace in the report because the mapping applies perfectly cleanly.
+   */
+  const report = await normalizeJob({
+    canonicalVersion: '1',
+    providers: [ACME],
+    mappings: [
+      {
+        provider: 'acme',
+        version: '1',
+        sourceType: 'order_created',
+        canonicalType: 'order.created',
+        sourceId: '/id',
+        fields: [{ from: '/data/total_cents', to: 'amountMinor', as: 'integer' }],
+      },
+      {
+        provider: 'acme',
+        version: '2',
+        sourceType: 'order_refunded',
+        canonicalType: 'order.refunded',
+        sourceId: '/id',
+        fields: [{ from: '/data/refund_cents', to: 'amountMinor', as: 'integer' }],
+      },
+    ],
+    events: [{
+      ref: 'v2-order-created',
+      provider: 'acme',
+      payload: { id: 'EVT-1', api_version: '2', event: 'order_created', data: { total_cents: 4250 } },
+    }],
+  })
+
+  assert.equal(report.status, 'fail')
+  assert.equal(report.summary.normalized, 0)
+  assert.deepEqual(report.normalization.events, [], 'a version 2 payload is never mapped with the version 1 rules')
+  assert.deepEqual(report.findings.filter((finding) => finding.severity === 'error').map((finding) => finding.ruleId), ['mapping-event-unknown'])
+})
+
 test('the declared version and the payload version must agree, and neither wins', async () => {
   const report = await normalizeJob({
     canonicalVersion: '1',
@@ -231,6 +276,20 @@ test('a payload with no readable source id is refused rather than normalized ano
 
   assert.equal(id, 'evt_ACME_1001')
   assert.equal(report.summary.normalized, 0)
+  assert.equal(report.findings.some((finding) => finding.ruleId === 'source-id-missing'), true)
+})
+
+test('an empty-string source id is no id at all, and the payload is refused', async () => {
+  const report = await normalizeJob({
+    canonicalVersion: '1',
+    providers: [ACME],
+    mappings: [acmeMapping('2')],
+    events: [{ ref: 'blank-id', provider: 'acme', payload: { ...ACME_PAYLOAD, id: '' } }],
+  })
+
+  assert.equal(report.status, 'fail')
+  assert.equal(report.summary.normalized, 0)
+  assert.deepEqual(report.normalization.events, [], 'an event with no provenance is never emitted with an empty one')
   assert.equal(report.findings.some((finding) => finding.ruleId === 'source-id-missing'), true)
 })
 
