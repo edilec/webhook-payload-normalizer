@@ -146,6 +146,102 @@ test('a bundle is never written carrying an equivalence verdict the budget cut s
   })
 })
 
+test('an unclaimed field too long to carry is incomplete, not merely a failure', async () => {
+  /**
+   * The sibling of the mapped-field bound one line up in the report, and the
+   * one with no test: the `preserve` policy reaches a *different*
+   * `limit-value-chars-exceeded` site, for a field no mapping claims. Whether
+   * that field belongs under `extensions` is exactly what the bound stopped the
+   * run from establishing, so it is evidence nobody obtained and exits 2.
+   */
+  const report = await normalizeJob(
+    job([
+      { ref: 'short', provider: 'acme', payload: PAYLOAD },
+      { ref: 'long', provider: 'acme', payload: { ...PAYLOAD, id: 'A2', note: 'ORD-5521' } },
+    ]),
+    { limits: { maxValueChars: 4 } },
+  )
+
+  assert.equal(report.summary.checked, 1, 'a fixture did reach a verdict, so "checked nothing" is not what carries this')
+  assert.equal(report.summary.skipped, 1)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(exitCodeFor(report), 2)
+  assert.equal(report.findings.some((finding) => finding.ruleId === 'limit-value-chars-exceeded'), true)
+})
+
+test('an events root that would not resolve is incomplete, even beside a fixture that passed', async () => {
+  await withBase(async (base) => {
+    const jobPath = join(base, 'job.json')
+    await writeFile(jobPath, JSON.stringify(job(
+      [
+        { ref: 'inline', provider: 'acme', payload: PAYLOAD },
+        { ref: 'filed', provider: 'acme', file: 'good.json' },
+      ],
+      { eventsRoot: 'absent' },
+    )))
+
+    const report = await normalizeJobFile(jobPath)
+
+    assert.equal(report.summary.checked, 1, 'one fixture did reach a verdict, so "checked nothing" is not what carries this')
+    assert.equal(report.status, 'incomplete', 'no fixture that names a file was read, and that is evidence nobody obtained')
+    assert.equal(exitCodeFor(report), 2)
+    assert.equal(report.findings.some((finding) => finding.ruleId === 'event-file-unreadable'), true)
+  })
+})
+
+test('a fixture that resolved but would not read is incomplete, even beside a fixture that passed', async () => {
+  await withBase(async (base) => {
+    await mkdir(join(base, 'events'))
+    await mkdir(join(base, 'events', 'not-a-file.json'))
+    const jobPath = join(base, 'job.json')
+    await writeFile(jobPath, JSON.stringify(job(
+      [
+        { ref: 'inline', provider: 'acme', payload: PAYLOAD },
+        { ref: 'filed', provider: 'acme', file: 'not-a-file.json' },
+      ],
+      { eventsRoot: 'events' },
+    )))
+
+    const report = await normalizeJobFile(jobPath)
+
+    assert.equal(report.summary.checked, 1, 'the path resolves and sits inside the root; it is the read that fails')
+    assert.equal(report.summary.skipped, 1)
+    assert.equal(report.status, 'incomplete')
+    assert.equal(exitCodeFor(report), 2)
+    assert.equal(report.findings.some((finding) => finding.ruleId === 'event-file-unreadable'), true)
+  })
+})
+
+test('a budget that stopped the fixture loop is incomplete even when a fixture did pass', async () => {
+  const events = [
+    { ref: 'one', provider: 'acme', payload: PAYLOAD },
+    { ref: 'two', provider: 'acme', payload: { ...PAYLOAD, id: 'A2' } },
+  ]
+
+  const whole = await normalizeJob(job(events))
+  assert.equal(whole.status, 'pass')
+  assert.equal(whole.summary.checked, 2)
+
+  /**
+   * `limit-steps-exceeded` is an error, so a run that hit the budget fails
+   * whatever the flag says -- and `fail` is the wrong answer. The distinction
+   * the flag carries is "this fixture set is wrong" against "this run did not
+   * establish what the fixture set is", and only the second is true here. The
+   * budget values that stop *after* the first fixture are the ones with no
+   * second line of defence: `no-events-checked` does not cover them.
+   */
+  let stoppedWithAVerdictInHand = false
+  for (let maxSteps = 1; maxSteps < whole.summary.steps; maxSteps += 1) {
+    const cut = await normalizeJob(job(events), { limits: { maxSteps } })
+
+    assert.equal(cut.status, 'incomplete', `maxSteps ${maxSteps}: the run stopped short of its own subject`)
+    assert.equal(exitCodeFor(cut), 2, `maxSteps ${maxSteps}: evidence nobody obtained exits 2, never 1`)
+    assert.equal(cut.findings.some((finding) => finding.ruleId === 'limit-steps-exceeded'), true, `maxSteps ${maxSteps}`)
+    if (cut.summary.checked > 0) stoppedWithAVerdictInHand = true
+  }
+  assert.equal(stoppedWithAVerdictInHand, true, 'at least one budget must stop the loop with a fixture already checked')
+})
+
 test('a job that could not be read reports which input, and does not pass', async () => {
   await withBase(async (base) => {
     const report = await normalizeJobFile(join(base, 'absent.json'), { label: 'absent.json' })
