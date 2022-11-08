@@ -93,6 +93,31 @@ function scanReport(value, found = new Set()) {
   return [...found].sort()
 }
 
+test('the scanner finds what it is looking for, everywhere the report could hide it', () => {
+  /**
+   * The positive control, without which every `deepEqual(scanReport(...), [])`
+   * below is unfalsifiable. A `scan` that matched nothing, a `scanReport` that
+   * skipped object keys, or a walk that stopped at the first nesting level
+   * would each report a clean bill of health for a report full of the very
+   * characters this file exists to keep out -- and no assertion here would
+   * notice. So the helpers are driven against text that is known bad, one
+   * character at a time, and against text that is known good.
+   */
+  assert.deepEqual(scan('an ordinary identifier'), [])
+  for (const [name, code] of FORBIDDEN) {
+    assert.deepEqual(scan(`id${CHAR(code)}forged`), [name], `scan must find ${name} when it is there`)
+    assert.deepEqual(scan(`id${CHAR(code)}forged`, [name]), [], `scan must honour its skip list for ${name}`)
+  }
+
+  const RLO = CHAR(0x202e)
+  const NEL = CHAR(0x0085)
+  assert.deepEqual(scanReport(`bare${RLO}string`), ['RLO'])
+  assert.deepEqual(scanReport([{ deep: [`nested${RLO}value`] }]), ['RLO'], 'the walk reaches through arrays and objects')
+  assert.deepEqual(scanReport({ [`key${NEL}forged`]: 'clean' }), ['NEL'], 'an object key is a string the report prints too')
+  assert.deepEqual(scanReport({ a: `x${NEL}`, b: [`y${RLO}`] }), ['NEL', 'RLO'], 'every hit is collected, not just the first')
+  assert.deepEqual(scanReport({ ok: 'clean', count: 1, nothing: null, list: ['fine'] }), [])
+})
+
 test('every forbidden character arriving through an identifier is gone from the report', async () => {
   for (const [name, code] of FORBIDDEN) {
     const report = await normalizeJob({
