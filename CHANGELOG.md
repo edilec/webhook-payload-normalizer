@@ -18,7 +18,8 @@ All notable changes to this project are documented in this file.
   that can be asserted by deep equality rather than approximated;
 - equivalence groups the tool checks for itself: name two or more fixtures and it deep-compares
   their canonical bodies, names the first field that differs, and refuses to call a group satisfied
-  when one of its members never normalized;
+  when one of its members never normalized or when the work budget stopped the comparison part-way
+  through it — a group compared in part reads as `null`, never as one that holds;
 - a declared policy for every field no mapping claimed — `preserve` carries it under `extensions`,
   `report` names it and drops it, `reject` refuses the payload — with one finding per field, so a
   dropped field is never a silent one;
@@ -67,8 +68,10 @@ All notable changes to this project are documented in this file.
   loopback port, plants that listener's own URL in the job and in the payload, and asserts the
   listener saw no connection and no request.
 - Unknown evidence is never a pass. Every path that could report silence as health — an unreadable
-  job, an unreadable fixture, a bound that was hit, an equivalence nobody could check, a run that
-  reached a verdict on nothing — sets `incomplete` and exits 2.
+  job, an unreadable fixture, a bound that was hit, an equivalence nobody could check or that the
+  step budget cut short, a run that reached a verdict on nothing — sets `incomplete` and exits 2.
+  Every one of the eighteen places the flag is raised was neutralised in turn and the failure
+  watched; none survives.
 - Two runs over the same bytes produce byte-identical stdout. No wall clock, random source,
   environment variable or locale reaches the output, nothing is discovered by listing a directory,
   and two payloads that differ only in JSON key order produce one report.
@@ -89,9 +92,19 @@ All notable changes to this project are documented in this file.
   substituting a collator, dropping the C1 range from the strip set, replacing real-path
   containment with a prefix test, replacing the device-and-inode identity test with a real-path
   comparison, removing an `incomplete` flag, dropping a `sanitize` call, unwiring a CLI flag from
-  the engine. Writing those tests found one real defect and fixed it: `--max-events` and
+  the engine. Writing those tests found two real defects and fixed both. `--max-events` and
   `--max-mappings` were applied after the job had already been validated with the defaults, so both
-  documented limits were accepted on the command line and silently ignored.
+  documented limits were accepted on the command line and silently ignored. And the equivalence
+  loop checked its step budget only *before* it ran: an inner `break` on an exhausted budget left
+  `match` at its initial `true` and fell into the branch that records `equivalence-confirmed`, so a
+  group whose fixtures genuinely differ was reported as holding, with `match: true` in the bundle,
+  at exit 0 and status `pass` — reachable from the job file alone, through `limits.maxSteps`. The
+  budget is now re-read after the loop and every way the loop can stop early is `unresolved`.
+- A second mutation pass over the tests closed four gaps the first one missed: a mapping fallback
+  on `(provider, sourceType)` that would read a version 1 field list out of a version 2 payload,
+  the `rawId !== ''` half of the source-id check (an empty-string id normalized anonymously), four
+  `incomplete` assignments whose only other guard was `no-events-checked` masking them, and the
+  sanitisation scanner's missing positive control.
 
 ### Notes
 

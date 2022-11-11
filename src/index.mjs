@@ -18,9 +18,12 @@
  *    carries it under `extensions`, `report` names it and drops it, `reject`
  *    refuses the payload. Silence is not one of the policies.
  * 4. **Unknown is never a pass.** A fixture that could not be read, decoded or
- *    parsed, a bound that stopped the walk, an equivalence group with a member
- *    that never normalized, and a run that reached a verdict on nothing each
- *    make the report `incomplete`. A `pass` with `checked: 0` is not reachable.
+ *    parsed, a bound that stopped the walk, an equivalence group the run did not
+ *    finish comparing -- whether because a member never normalized or because
+ *    the step budget ran out part-way through it -- and a run that reached a
+ *    verdict on nothing each make the report `incomplete`. A `pass` with
+ *    `checked: 0` is not reachable, and neither is a group confirmed on
+ *    comparisons that never ran.
  *
  * There is no network in this package. It imports no socket, HTTP, datagram,
  * resolver or TLS module, invokes no fetch primitive and spawns no process, so

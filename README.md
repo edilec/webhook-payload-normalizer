@@ -113,9 +113,11 @@ The full schema, the rule catalog and the limits are in
   normalized anonymously.
 - **A field nobody mapped is handled by declared policy** — `preserve`, `report` or `reject` — with
   one finding per field. Silence is not one of the policies.
-- **Unknown is never a pass.** An unreadable input, a bound that was hit, an equivalence group with
-  a member that never normalized, and a run that reached a verdict on nothing each make the report
-  `incomplete` and exit 2. A `pass` with `checked: 0` is not reachable.
+- **Unknown is never a pass.** An unreadable input, a bound that was hit, an equivalence group the
+  run did not finish comparing -- a member that never normalized, or a step budget that ran out
+  part-way through the group -- and a run that reached a verdict on nothing each make the report
+  `incomplete` and exit 2. A `pass` with `checked: 0` is not reachable, and a group compared in
+  part reads as `null`, never as one that holds.
 - **Two runs over the same bytes produce byte-identical stdout.** No wall clock, no locale, no
   random source, no directory listing, and no filesystem or JSON key order reaches the output.
 - **No socket is opened.** The package imports no networking primitive; a test opens a real
