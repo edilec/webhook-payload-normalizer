@@ -72,7 +72,7 @@ Each of these also sets `incomplete`, so the run exits 2.
 | --- | --- | --- |
 | `job-unreadable` | `error` | The job file could not be opened, or is not a regular file. |
 | `job-not-utf8` | `error` | The job file is not valid UTF-8. |
-| `job-not-json` | `error` | The job file is not valid JSON. |
+| `job-not-json` | `error` | The job file is not valid JSON. The message carries the parser's position, line and column, never the snippet the parser quotes back. |
 | `job-invalid` | `error` | The job does not match the schema below. |
 | `job-unknown-key` | `error` | The job declares a key the schema does not define. A typo is refused, never ignored. |
 | `mapping-duplicate` | `error` | Two mappings claim one `(provider, version, sourceType)`. Which applies is not something this tool will guess. |
@@ -81,7 +81,7 @@ Each of these also sets `incomplete`, so the run exits 2.
 | `event-type-unresolved` | `error` | The provider's `typeAt` resolves to nothing, or to something that is not a non-empty string. |
 | `event-file-unreadable` | `error` | A fixture file, or the events root, could not be read. |
 | `event-file-not-utf8` | `error` | A fixture file is not valid UTF-8. |
-| `event-file-not-json` | `error` | A fixture file is not valid JSON. |
+| `event-file-not-json` | `error` | A fixture file is not valid JSON. The message carries the parser's position, line and column, never the snippet the parser quotes back: V8 reports `Unexpected token 'A', "..." is not valid JSON`, which reproduces a short capture in full. |
 | `no-events-checked` | `error` | No fixture reached a verdict, so the run checked nothing. |
 
 `event-file-outside-root` is the one file rule that is *not* incomplete: it is a refusal this tool

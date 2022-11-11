@@ -66,6 +66,32 @@ export function sanitize(value, limit = TEXT_LIMIT) {
 }
 
 /**
+ * Say why a document would not parse, without reproducing any of it.
+ *
+ * V8 reports a JSON parse failure two ways, and one of them quotes the input
+ * back: `Unexpected token 'A', "AKIAIOSFODNN7EXAMPLE" is not valid JSON`. A
+ * fixture or a job file short enough to be nothing but a credential is
+ * therefore reproduced in full by its own error message -- and a webhook
+ * fixture is a captured payload, which is the kind of document that carries a
+ * signing secret, a card number or a customer's name.
+ *
+ * `sanitize` does not help. It strips control characters and cuts from the
+ * END; the quoted snippet sits at the FRONT and survives both.
+ *
+ * The position is the useful half and carries no content, so it is kept; the
+ * quoted half is the input and never leaves this function.
+ */
+export function parseFailureDetail(error) {
+  const message = String(error?.message ?? 'could not be parsed')
+  const position = /at position \d+(?: \(line \d+ column \d+\))?/.exec(message)
+  if (position !== null) return message.slice(0, position.index + position[0].length)
+  const token = /^Unexpected token (.+?), ".*?"(?:\.\.\.)? is not valid JSON$/s.exec(message)
+  if (token !== null) return `unexpected token ${token[1]} at the start of the document`
+  if (/^Unexpected end of JSON input$/.test(message)) return message
+  return 'the document could not be parsed as JSON'
+}
+
+/**
  * The same strip set applied to a *data* string on its way into a canonical
  * event or an extensions entry, and a flag saying whether anything changed.
  *

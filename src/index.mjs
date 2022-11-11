@@ -42,7 +42,9 @@ import {
 } from './job.mjs'
 import { applyMapping, compareCanonical, resolveEnvelope } from './normalize.mjs'
 import { RULE_SEVERITY, compareFindings, createFinding, sortFindings } from './rules.mjs'
-import { byCodeUnit, createBudget, decodeUtf8, joinRelative, sanitize } from './text.mjs'
+import {
+  byCodeUnit, createBudget, decodeUtf8, joinRelative, parseFailureDetail, sanitize,
+} from './text.mjs'
 
 export const TOOL_ID = 'webhook-payload-normalizer'
 export const REPORT_SCHEMA_VERSION = '1'
@@ -280,7 +282,7 @@ async function loadFixture(collector, event, rootReal, limits, inputs) {
       file: label,
       pointer,
       ruleId: 'event-file-not-json',
-      message: `Fixture file is not valid JSON: ${sanitize(error.message, 160)}. Fixture "${sanitize(event.ref, 80)}" was not normalized.`,
+      message: `Fixture file is not valid JSON: ${parseFailureDetail(error)}. Fixture "${sanitize(event.ref, 80)}" was not normalized.`,
       evidence: label,
       suggestion: 'Validate the fixture with a JSON parser before re-running.',
     })
@@ -750,7 +752,7 @@ export async function normalizeJobFile(jobPath, options = {}) {
   try {
     parsed = JSON.parse(decoded.text)
   } catch (error) {
-    return unreadableReport(label, 'job-not-json', `The job file is not valid JSON: ${sanitize(error.message, 160)}.`, 'Validate the job with a JSON parser before re-running.')
+    return unreadableReport(label, 'job-not-json', `The job file is not valid JSON: ${parseFailureDetail(error)}.`, 'Validate the job with a JSON parser before re-running.')
   }
 
   let baseDir
@@ -805,4 +807,7 @@ export { DEFAULT_LIMITS, HARD_LIMITS, MAX_JOB_BYTES, SUPPORTED_TRANSFORMS, SUPPO
 export { applyMapping, compareCanonical, resolveEnvelope } from './normalize.mjs'
 export { POINTER_MAX_LENGTH, POINTER_MAX_TOKENS, covers, enumerateLeaves, escapeToken, parsePointer, readPointer, resolvePointer } from './pointer.mjs'
 export { RULE_SEVERITY, SEVERITY_DECIDES, SEVERITY_VALUES, compareFindings, createFinding, sortFindings } from './rules.mjs'
-export { TEXT_LIMIT, byCodeUnit, createBudget, decodeUtf8, joinRelative, sanitize, sanitizeValue } from './text.mjs'
+export {
+  TEXT_LIMIT, byCodeUnit, createBudget, decodeUtf8, joinRelative, parseFailureDetail, sanitize,
+  sanitizeValue,
+} from './text.mjs'

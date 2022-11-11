@@ -336,3 +336,123 @@ test('a string that needed no sanitising is left exactly as it was', async () =>
   assert.equal(report.normalization.events[0].canonical.data.orderId, '  keep   my spacing  ')
   assert.deepEqual(report.findings, [], 'no sanitisation happened, so there is nothing to report')
 })
+
+/**
+ * The parse-failure path, which every case above walks past.
+ *
+ * Everything above rides inside a document the tool parsed and then chose to
+ * print. A file that does not parse never reaches that code: it is described
+ * by V8's own error message instead, and V8 phrases one of its two parse
+ * failures as `Unexpected token 'A', "AKIAIOSFODNN7EXAMPLE" is not valid
+ * JSON` -- reproducing a short file in full, into a finding on stdout and into
+ * the human summary on stderr.
+ *
+ * `sanitize` cannot repair it: it strips control characters and cuts from the
+ * end, and the quoted snippet is at the front.
+ *
+ * A webhook fixture is a captured provider payload, which is exactly the kind
+ * of document that carries a signing secret, a card number or a customer's
+ * name; the job file is configuration, which is the other kind. Both parse
+ * sites are covered below.
+ *
+ * The canaries are published placeholders, never real credentials: the example
+ * key id from the AWS documentation, the standard test card number that
+ * authorises nothing (with a leading letter, because the bare digits are a
+ * valid JSON number), and a host under the RFC 2606 `.invalid` reserved
+ * top-level domain. Every prefix from eight characters up is scanned on both
+ * streams -- a check of the whole value alone passes for output that leaks all
+ * but the last character.
+ */
+const CANARIES = Object.freeze({
+  'AWS example access key id': 'AKIAIOSFODNN7EXAMPLE',
+  'standard test card number': 'x4111111111111111',
+  'reserved example host': 'api.example.invalid',
+  'bearer-looking token': 'Bearer-ZXhhbXBsZS10b2tlbg',
+})
+
+const MIN_PREFIX = 8
+
+function assertAbsent(text, canary, label) {
+  for (let length = MIN_PREFIX; length <= canary.length; length += 1) {
+    const prefix = canary.slice(0, length)
+    assert.equal(text.includes(prefix), false, `"${prefix}" (${length} chars) reached ${label}`)
+  }
+}
+
+/** Run the real binary and return both streams, whatever the exit code. */
+async function cli(args) {
+  return run(process.execPath, [CLI, ...args], { cwd: projectDirectory })
+    .then((value) => value, (error) => ({ stdout: error.stdout ?? '', stderr: error.stderr ?? '' }))
+}
+
+test('an unparseable job file is not quoted back by its own parse error', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'webhook-payload-normalizer-parse-job-'))
+  try {
+    for (const [name, canary] of Object.entries(CANARIES)) {
+      const jobPath = join(base, 'job.json')
+      await writeFile(jobPath, canary)
+      const { stdout, stderr } = await cli(['--job', jobPath, '--label', 'job.json'])
+
+      assert.equal(
+        JSON.parse(stdout).findings.some((finding) => finding.ruleId === 'job-not-json'),
+        true,
+        'the job file must really have failed to parse',
+      )
+      assertAbsent(stdout, canary, `stdout for ${name}`)
+      assertAbsent(stderr, canary, `stderr for ${name}`)
+    }
+  } finally {
+    await rm(base, { recursive: true, force: true })
+  }
+})
+
+test('an unparseable fixture file is not quoted back by its own parse error', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'webhook-payload-normalizer-parse-fixture-'))
+  try {
+    await mkdir(join(base, 'events'), { recursive: true })
+    const jobPath = join(base, 'job.json')
+    await writeFile(jobPath, JSON.stringify({
+      canonicalVersion: '1',
+      eventsRoot: 'events',
+      providers: [PROVIDER],
+      mappings: [MAPPING],
+      events: [{ ref: 'e1', provider: 'acme', version: '2', file: 'capture.json' }],
+    }))
+
+    for (const [name, canary] of Object.entries(CANARIES)) {
+      await writeFile(join(base, 'events', 'capture.json'), canary)
+      const { stdout, stderr } = await cli(['--job', jobPath, '--label', 'job.json'])
+
+      assert.equal(
+        JSON.parse(stdout).findings.some((finding) => finding.ruleId === 'event-file-not-json'),
+        true,
+        'the fixture must really have failed to parse',
+      )
+      assertAbsent(stdout, canary, `stdout for ${name}`)
+      assertAbsent(stderr, canary, `stderr for ${name}`)
+    }
+  } finally {
+    await rm(base, { recursive: true, force: true })
+  }
+})
+
+/**
+ * The other half of the fix: a diagnostic that says nothing is a different
+ * defect. A fixture missing one comma reports a position, a line and a column
+ * rather than a quotation, and that is what a reader needs to find the spot.
+ */
+test('a parse failure still says where the document went wrong', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'webhook-payload-normalizer-parse-position-'))
+  try {
+    const jobPath = join(base, 'job.json')
+    await writeFile(jobPath, '{\n  "canonicalVersion": "1"\n  "events": []\n}\n')
+    const { stdout } = await cli(['--job', jobPath, '--label', 'job.json'])
+
+    const finding = JSON.parse(stdout).findings.find((row) => row.ruleId === 'job-not-json')
+    assert.notEqual(finding, undefined)
+    assert.match(finding.message, /position \d+/)
+    assert.match(finding.message, /line \d+ column \d+/)
+  } finally {
+    await rm(base, { recursive: true, force: true })
+  }
+})
