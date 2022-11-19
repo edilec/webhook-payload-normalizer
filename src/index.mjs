@@ -42,6 +42,7 @@ import {
 } from './job.mjs'
 import { applyMapping, compareCanonical, resolveEnvelope } from './normalize.mjs'
 import { RULE_SEVERITY, compareFindings, createFinding, sortFindings } from './rules.mjs'
+import { assertWritableDestination } from './write-guard.mjs'
 import {
   byCodeUnit, createBudget, decodeUtf8, joinRelative, parseFailureDetail, sanitize,
 } from './text.mjs'
@@ -65,19 +66,6 @@ const FILE_OPTION_KEYS = Object.freeze(['label', 'limits', 'outPath'])
 export function isInside(root, candidate) {
   if (candidate === root) return true
   return candidate.startsWith(root.endsWith(sep) ? root : `${root}${sep}`)
-}
-
-/**
- * Whether two stat results name the same file.
- *
- * `realpath` resolves symlinks, but a **hard link** has no target: two names
- * for one inode both resolve to themselves, so a real-path comparison says they
- * are different files and a tool that trusted it would overwrite its own input.
- * Device plus inode is the identity that survives hard links, and it is the
- * comparison this tool refuses a destination on.
- */
-export function isSameFile(left, right) {
-  return left.dev === right.dev && left.ino === right.ino
 }
 
 function createCollector(label) {
@@ -294,13 +282,22 @@ async function loadFixture(collector, event, rootReal, limits, inputs) {
 /**
  * Decide whether the normalized bundle may be written, and write it.
  *
- * Two refusals, both deliberate. A run that did not fully succeed withholds its
- * bundle, because a partially normalized set of events written to disk is the
- * kind of output a pipeline picks up without noticing what is missing. And a
- * destination that *is* one of this run's inputs is refused on device and inode
- * -- see `isSameFile` for why a real-path comparison is not enough.
+ * The destination is checked before anything is opened, and a destination that
+ * cannot be written to safely throws out of the run: it is a configuration
+ * error, so the CLI exits 2 with an empty stdout rather than reporting on a
+ * subject it never had. `assertWritableDestination` carries the reasoning for
+ * all three holes -- a symlink at the destination, a symlinked parent, and a
+ * hard link to an input -- and none of them catches the other two.
+ *
+ * The second refusal is the tool's own: a run that did not fully succeed
+ * withholds its bundle, because a partially normalized set of events written to
+ * disk is the kind of output a pipeline picks up without noticing what is
+ * missing. It is reported rather than thrown, because that run did have a
+ * subject and the report is the verdict about it.
  */
-async function writeBundle(collector, normalization, outPath, inputs, clean) {
+async function writeBundle(collector, normalization, outPath, inputs, root, clean) {
+  const absolute = await assertWritableDestination(outPath, { inputs, root, label: '--out' })
+
   if (!clean) {
     record(collector, {
       pointer: '/',
@@ -310,27 +307,6 @@ async function writeBundle(collector, normalization, outPath, inputs, clean) {
       suggestion: 'Fix the findings above and re-run; the bundle is written only when the run passes.',
     })
     return
-  }
-
-  const absolute = resolve(outPath)
-  let destination = null
-  try {
-    destination = await stat(absolute)
-  } catch {
-    destination = null
-  }
-  if (destination !== null) {
-    const collision = inputs.find((input) => isSameFile(input, destination))
-    if (collision !== undefined) {
-      record(collector, {
-        pointer: '/',
-        ruleId: 'output-is-input',
-        message: `The output destination is the same file as an input of this run -- same device and inode, whatever the two paths are called -- so nothing was written and the input was not destroyed.`,
-        evidence: collision.label,
-        suggestion: 'Write the bundle somewhere outside the inputs; a hard link to an input is still that input.',
-      })
-      return
-    }
   }
 
   try {
@@ -696,7 +672,8 @@ export async function normalizeJob(job, options = {}) {
 
   if (options.outPath !== undefined && options.outPath !== null) {
     const clean = !collector.incomplete && !collector.rows.some((row) => RULE_SEVERITY[row.ruleId] === 'error')
-    await writeBundle(collector, normalization, options.outPath, inputs, clean)
+    const outRoot = typeof options.baseDir === 'string' && options.baseDir !== '' ? options.baseDir : null
+    await writeBundle(collector, normalization, options.outPath, inputs, outRoot, clean)
   }
 
   return buildReport(collector, counts, normalization, limits, budget)
@@ -807,6 +784,7 @@ export { DEFAULT_LIMITS, HARD_LIMITS, MAX_JOB_BYTES, SUPPORTED_TRANSFORMS, SUPPO
 export { applyMapping, compareCanonical, resolveEnvelope } from './normalize.mjs'
 export { POINTER_MAX_LENGTH, POINTER_MAX_TOKENS, covers, enumerateLeaves, escapeToken, parsePointer, readPointer, resolvePointer } from './pointer.mjs'
 export { RULE_SEVERITY, SEVERITY_DECIDES, SEVERITY_VALUES, compareFindings, createFinding, sortFindings } from './rules.mjs'
+export { DestinationError, assertWritableDestination, isSameFile } from './write-guard.mjs'
 export {
   TEXT_LIMIT, byCodeUnit, createBudget, decodeUtf8, joinRelative, parseFailureDetail, sanitize,
   sanitizeValue,

@@ -422,7 +422,7 @@ test('the closed alphabets that reach output collate exactly as their code units
   }
 
   const ruleIds = disagreements(Object.keys(RULE_SEVERITY))
-  assert.equal(ruleIds.pairs, 1806)
+  assert.equal(ruleIds.pairs, 1722)
   assert.deepEqual(ruleIds.found, [])
 
   const policies = disagreements([...UNKNOWN_FIELD_POLICIES])

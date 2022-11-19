@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { link, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
@@ -403,63 +403,39 @@ test('equivalence-mismatch fails the run: exit 1, status fail, 1 error, printed 
   assert.equal(lines[0].startsWith('WARNING'), false)
 })
 
-test('output-is-input fails the run, writes nothing: exit 1, status fail, 1 error, printed ERROR', async () => {
-  const { code, report, stderr, after, original } = await withBase(async (base) => {
-    const jobPath = join(base, 'job.json')
-    const body = {
-      canonicalVersion: '1',
-      providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
-      mappings: [{
-        provider: 'acme',
-        version: '2',
-        sourceType: 'order_created',
-        canonicalType: 'order.created',
-        sourceId: '/id',
-        fields: [{ from: '/data/order_id', to: 'orderId', as: 'string' }],
-      }],
-      events: [{ ref: 'e1', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created', data: { order_id: 'O1' } } }],
-    }
-    const original = JSON.stringify(body, null, 2)
-    await writeFile(jobPath, original)
-    const hardLink = join(base, 'another-name.json')
-    await link(jobPath, hardLink)
-
-    try {
-      const { stdout, stderr: out } = await run(process.execPath, [CLI, '--job', jobPath, '--label', 'job.json', '--out', hardLink], { cwd: projectDirectory })
-      return { code: 0, report: JSON.parse(stdout), stderr: out, after: await readFile(jobPath, 'utf8'), original }
-    } catch (error) {
-      return { code: error.code, report: JSON.parse(error.stdout), stderr: error.stderr, after: await readFile(jobPath, 'utf8'), original }
-    }
-  })
-  const lines = printed(stderr, 'output-is-input')
-
-  assert.equal(after, original, 'the input reached through its other name must be exactly as it was')
-  assert.equal(code, 1)
-  assert.equal(report.status, 'fail')
-  assert.equal(report.summary.errors, 1)
-  assert.equal(report.summary.warnings, 0)
-  assert.equal(report.summary.info, 0)
-  assert.equal(lines.length, 1)
-  assert.equal(lines[0].startsWith('ERROR  '), true)
-  assert.equal(lines[0].startsWith('WARNING'), false)
-})
-
+/**
+ * A destination the guard accepts and the filesystem still refuses.
+ *
+ * Every destination that is unsafe -- a symlink, a parent that leaves the job's
+ * directory, a hard link to an input -- is a configuration error now and exits
+ * 2 with an empty stdout, so it cannot reach this rule. What is left is a
+ * destination that was checked, was safe, and could not be written anyway: a
+ * directory this process may not write into. That is the one route to
+ * `output-unwritable`, and it is the route this test drives.
+ */
 test('output-unwritable fails the run: exit 1, status fail, 1 error, printed ERROR', async () => {
   const { code, report, stderr } = await normalize(
-    writeJob({
-      canonicalVersion: '1',
-      providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
-      mappings: [{
-        provider: 'acme',
-        version: '2',
-        sourceType: 'order_created',
-        canonicalType: 'order.created',
-        sourceId: '/id',
-        fields: [{ from: '/data/order_id', to: 'orderId', as: 'string' }],
-      }],
-      events: [{ ref: 'e1', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created', data: { order_id: 'O1' } } }],
-    }),
-    ['--out', '<base>/no-such-directory/bundle.json'],
+    async (base) => {
+      const locked = join(base, 'locked')
+      await mkdir(locked)
+      await chmod(locked, 0o555)
+      const path = join(base, 'job.json')
+      await writeFile(path, JSON.stringify({
+        canonicalVersion: '1',
+        providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
+        mappings: [{
+          provider: 'acme',
+          version: '2',
+          sourceType: 'order_created',
+          canonicalType: 'order.created',
+          sourceId: '/id',
+          fields: [{ from: '/data/order_id', to: 'orderId', as: 'string' }],
+        }],
+        events: [{ ref: 'e1', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created', data: { order_id: 'O1' } } }],
+      }, null, 2))
+      return path
+    },
+    ['--out', '<base>/locked/bundle.json'],
   )
   const lines = printed(stderr, 'output-unwritable')
 

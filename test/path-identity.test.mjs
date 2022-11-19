@@ -75,10 +75,10 @@ test('the output destination is refused when it is an input reached by another n
     const alias = join(base, 'alias.json')
     await link(jobPath, alias)
 
-    const report = await normalizeJobFile(jobPath, { outPath: alias })
-
-    assert.equal(report.status, 'fail')
-    assert.equal(report.findings.filter((finding) => finding.ruleId === 'output-is-input').length, 1)
+    await assert.rejects(
+      () => normalizeJobFile(jobPath, { outPath: alias }),
+      (error) => error.name === 'DestinationError' && /device \d+ and inode \d+/.test(error.message),
+    )
     assert.equal(await readFile(jobPath, 'utf8'), original, 'the input must be exactly as it was')
     assert.equal(await readFile(alias, 'utf8'), original)
   })
@@ -97,10 +97,10 @@ test('the output destination is refused when a symlink points at an input', asyn
     const pointer = join(base, 'pointer.json')
     await symlink(fixture, pointer)
 
-    const report = await normalizeJobFile(jobPath, { outPath: pointer })
-
-    assert.equal(report.status, 'fail')
-    assert.equal(report.findings.filter((finding) => finding.ruleId === 'output-is-input').length, 1)
+    await assert.rejects(
+      () => normalizeJobFile(jobPath, { outPath: pointer }),
+      (error) => error.name === 'DestinationError' && /symbolic link/.test(error.message),
+    )
     assert.equal(await readFile(fixture, 'utf8'), JSON.stringify(PAYLOAD))
   })
 })

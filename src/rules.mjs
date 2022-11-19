@@ -53,7 +53,6 @@ export const RULE_SEVERITY = Object.freeze({
   'mapping-unused': 'info',
   'mapping-version-unknown': 'error',
   'no-events-checked': 'error',
-  'output-is-input': 'error',
   'output-unwritable': 'error',
   'output-withheld': 'warning',
   'provider-unknown': 'error',
@@ -71,7 +70,7 @@ export const SEVERITY_VALUES = Object.freeze(['error', 'warning', 'info'])
  * a pass.
  *
  * Every other error rule also sets the `incomplete` flag, so it exits 2
- * whatever its severity says. These thirteen have no second line of defence:
+ * whatever its severity says. These twelve have no second line of defence:
  * demote one and a refused payload becomes a green build.
  */
 export const SEVERITY_DECIDES = Object.freeze([
@@ -83,7 +82,6 @@ export const SEVERITY_DECIDES = Object.freeze([
   'field-value-unmapped',
   'mapping-event-unknown',
   'mapping-version-unknown',
-  'output-is-input',
   'output-unwritable',
   'provider-unknown',
   'source-id-missing',
