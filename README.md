@@ -38,9 +38,14 @@ webhook-payload-normalizer --job job.json --json > report.json
 webhook-payload-normalizer --job job.json --out bundle.json
 ```
 
-`--out` writes the normalized events as a bundle, and only when the run passes. A destination that
-is one of the run's own inputs is refused before anything is written — compared by device and
-inode, because a hard link has no target and a path comparison would happily overwrite it.
+`--out` writes the normalized events as a bundle, and only when the run passes. The destination is
+checked before anything is opened, and a destination that would write somewhere else is refused as
+a configuration error — exit `2`, empty stdout, nothing written. It is refused when it is a
+symbolic link (`realpath` would *resolve* the link, and resolving is the dangerous act, so `lstat`
+refuses it on sight), when it resolves outside the job file's own directory (the parent is resolved,
+because a lexical prefix check passes for a symlinked parent), and when it is one of the run's own
+inputs (compared by device and inode, because a hard link has no target and a path comparison would
+happily overwrite it).
 
 `--help` lists every option. Exit codes: `0` passed, `1` completed and failed, `2` invalid
 configuration (stdout empty) or evidence that could not be obtained (an `incomplete` report).

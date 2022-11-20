@@ -35,9 +35,14 @@ All notable changes to this project are documented in this file.
 - real-path containment on both sides, so a symlink out of the events root is refused unread while
   a fixture genuinely inside a root reached through a symlink is still normalized — a false refusal
   is a bug too;
-- an `--out` destination refused on device and inode rather than on path, because a hard link has
-  no target and a real-path comparison would let a tool overwrite its own input; the bundle is also
-  withheld from any run that did not pass;
+- an `--out` destination checked for all three ways a named path is not the file it names — a
+  symbolic link at the destination, refused unresolved with `lstat` because `realpath` would
+  *resolve* it and resolving is the dangerous act; a parent that leaves the job file's own
+  directory, caught by resolving the parent rather than comparing strings; and a hard link to one
+  of this run's inputs, caught on device and inode because a hard link has no target and a
+  real-path comparison would let the tool overwrite its own input. A refused destination is a
+  configuration error: exit 2, empty stdout, nothing written. The bundle is also withheld from any
+  run that did not pass;
 - explicit bounds on fixtures, mappings, payload bytes, payload nesting depth, unclaimed fields,
   mapped value length, findings and total work, each reported by the name it is configured under
   and each making the run `incomplete` rather than truncating it quietly;
@@ -86,7 +91,7 @@ All notable changes to this project are documented in this file.
   An English collator substituted at each of them in turn is caught at ten, by fixtures whose
   collation order and code-unit order disagree — `Z` against `a`, `a-b` against `a_b`. The
   eleventh orders rule ids over `[a-z0-9-]`, an alphabet on which collation and code units agree on
-  all 1806 ordered pairs; that is enumerated in `test/finding-order.test.mjs` and recorded as an
+  all 1722 ordered pairs; that is enumerated in `test/finding-order.test.mjs` and recorded as an
   equivalent mutant rather than counted as coverage.
 - Each guarantee above was removed in turn and the failure watched — demoting a severity,
   substituting a collator, dropping the C1 range from the strip set, replacing real-path
@@ -105,6 +110,30 @@ All notable changes to this project are documented in this file.
   the `rawId !== ''` half of the source-id check (an empty-string id normalized anonymously), four
   `incomplete` assignments whose only other guard was `no-events-checked` masking them, and the
   sanitisation scanner's missing positive control.
+
+### Fixed
+
+- **Data loss.** `--out` accepted a symbolic link at the destination, so the bundle was written
+  through the link onto a file in another tree entirely. Reproduced before the fix: a file outside
+  the job directory holding `PRECIOUS-WEBHOOK` was replaced by the bundle and the run exited `0`
+  with an empty stderr. The destination is now checked before anything is opened — `lstat`
+  refuses a symbolic link on sight, including one whose target does not exist yet, so a dangling
+  link cannot quietly create a file outside the root either — and the same run now exits `2`
+  with an empty stdout and leaves the file untouched. `test/destination-guard.test.mjs` drives the
+  real binary through one case per hole plus four destinations that must still be **written**,
+  because a guard that refuses everything passes every data-loss case while making the tool
+  useless. Each of the three checks was removed in turn and the failures watched.
+
+### Changed
+
+- `--out` must now resolve inside the job file's own directory. A job normalized as an object
+  through `normalizeJob` with no `baseDir` declared no directory, so only the symlink and
+  device-and-inode refusals apply to it.
+- The `output-is-input` rule is gone. A destination that cannot be written to safely is a
+  configuration error now rather than a finding: the run exits `2` with an empty stdout instead of
+  `1` with a report, because a run whose destination was never usable has nothing to report about
+  one. `output-unwritable` remains, for a destination that passed every check and could not be
+  written anyway.
 
 ### Notes
 

@@ -28,10 +28,16 @@ Usage:
 
 Options:
   --job FILE                 Normalization job to run (JSON, max 1 MiB) (required)
-  --out FILE                 Write the normalized bundle here. Written only when
-                             the run passes; refused when the destination is one
-                             of this run's inputs, compared by device and inode
-                             so that a hard link to an input is still that input
+  --out FILE                 Write the normalized bundle here, inside the job
+                             file's own directory. Written only when the run
+                             passes. The destination is refused, as a
+                             configuration error, when it is a symbolic link
+                             (resolving the link is the dangerous act, so it is
+                             refused on sight), when it resolves outside that
+                             directory through a symlinked parent or a ".."
+                             segment, or when it is one of this run's inputs,
+                             compared by device and inode so that a hard link
+                             to an input is still that input
   --label NAME               Value recorded as location.file for job-level
                              findings (defaults to the --job value as written)
   --json                     Suppress the human summary on stderr
@@ -50,7 +56,8 @@ Every option that carries a value may be given only once: a repeated flag is a
 configuration error, not a silent last-wins. An unknown option is refused, so a
 one-character typo cannot quietly turn a real failure into a green run.
 
-Fixtures are read, never written. There is no auto-fix.
+Fixtures are read, never written. There is no auto-fix. A refused --out is a
+configuration error: exit 2, empty stdout, nothing written.
 
 Output:
   stdout  the JSON report only, so it can be piped straight into a parser

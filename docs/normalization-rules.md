@@ -58,10 +58,23 @@ One finding per unclaimed field. The field's pointer is the finding's `evidence`
 
 `--out` writes the normalized bundle. It is written only when the run would otherwise pass.
 
+The destination itself is checked before anything is opened, and a destination that cannot be
+written to safely is a **configuration error**: the run exits `2` with an empty stdout and no
+report, because a run whose destination was never usable has nothing to report about one. Three
+independent refusals, none of which catches the other two:
+
+| Refused | Why the obvious guard misses it |
+| --- | --- |
+| The destination is a **symbolic link** | `realpath` on the destination *resolves* the link, and resolving is the dangerous act. It is refused on sight with `lstat`, before anything is opened — including a link whose target does not exist yet, which would otherwise create a file outside the job's directory. |
+| The destination resolves **outside the job's directory** | A lexical prefix check passes for `job-dir/link/bundle.json` where `link` leaves the tree, so the parent is resolved with `realpath` and then compared. |
+| The destination is **one of this run's inputs** | A hard link has no target and shares no path with the input, so `realpath` and string comparison both call it a different file. Only **device and inode** see that it is the same file. |
+
+A job normalized as an object through `normalizeJob` with no `baseDir` declared no directory, so
+only the first and third refusals apply to it.
+
 | Rule | Severity | Raised when |
 | --- | --- | --- |
-| `output-is-input` | `error` | The destination is one of this run's inputs — compared by **device and inode**, so a hard link or a symlink to an input is still that input. Nothing is written. |
-| `output-unwritable` | `error` | The destination could not be written. |
+| `output-unwritable` | `error` | The destination passed every check above and the write still failed — a directory this process may not write into, a full disk. |
 | `output-withheld` | `warning` | The run did not pass, so no bundle was written. A partial bundle is the kind of file a pipeline consumes without noticing what is missing. |
 
 ### Evidence that could not be obtained
