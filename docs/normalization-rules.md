@@ -90,8 +90,8 @@ Each of these also sets `incomplete`, so the run exits 2.
 | `job-unknown-key` | `error` | The job declares a key the schema does not define. A typo is refused, never ignored. |
 | `mapping-duplicate` | `error` | Two mappings claim one `(provider, version, sourceType)`. Which applies is not something this tool will guess. |
 | `mapping-unsupported-construct` | `error` | A pointer, type or transform outside the supported subset. Reported as unsupported, never treated as an absent field. |
-| `event-version-unresolved` | `error` | The provider's `versionAt` resolves to nothing, or to something that is not a non-empty string. |
-| `event-type-unresolved` | `error` | The provider's `typeAt` resolves to nothing, or to something that is not a non-empty string. |
+| `event-version-unresolved` | `error` | The provider's `versionAt` resolves to nothing, or to something that is not a non-empty string renderable unchanged. This includes invisible marks and folded whitespace; the run is incomplete rather than claiming a visibly identical mapping is absent. |
+| `event-type-unresolved` | `error` | The provider's `typeAt` resolves to nothing, or to something that is not a non-empty string renderable unchanged. The run is incomplete rather than asserting absence against a lossy display. |
 | `event-file-unreadable` | `error` | A fixture file, or the events root, could not be read. |
 | `event-file-not-utf8` | `error` | A fixture file is not valid UTF-8. |
 | `event-file-not-json` | `error` | A fixture file is not valid JSON. The message carries the parser's position, line and column, never the snippet the parser quotes back: V8 reports `Unexpected token 'A', "..." is not valid JSON`, which reproduces a short capture in full. |

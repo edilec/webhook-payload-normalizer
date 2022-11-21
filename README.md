@@ -110,7 +110,9 @@ The full schema, the rule catalog and the limits are in
 
 - **A mapping is never guessed.** Selection is an exact `(provider, version, sourceType)` match.
   An unknown version, an unknown source event name, or a declared version that disagrees with the
-  payload is a refusal that fails the run.
+  payload is a refusal that fails the run. If a payload version or source event name changes when
+  rendered safely (for example, an invisible mark or folded whitespace), the comparison is
+  incomplete instead: it cannot truthfully claim that a visibly identical mapping is absent.
 - **Nothing is converted.** `as` is a type check. A `"4250"` declared `integer` is a mismatch, not
   a number. A value outside a field's declared `values` map is refused, not carried across.
 - **Provenance survives.** Every canonical event keeps the provider, the provider's own version

@@ -14,12 +14,15 @@
  */
 
 import { covers, enumerateLeaves, escapeToken, resolvePointer } from './pointer.mjs'
-import { byCodeUnit, sanitizeValue } from './text.mjs'
+import { byCodeUnit, sanitize, sanitizeValue } from './text.mjs'
 
 /**
  * The provider envelope: where the version and the event name live.
  *
- * Both must resolve to a non-empty string. A version that arrives as the number
+ * Both must resolve to a non-empty string that can be rendered unchanged. A
+ * hidden mark or folded whitespace can make two different raw identifiers
+ * display identically; such evidence cannot prove a mapping absent. A version
+ * that arrives as the number
  * `2` is not the string `"2"`: treating them as the same value is the first
  * step of exactly the coercion this tool exists to refuse, so it is reported as
  * unresolved and the payload is not mapped.
@@ -28,11 +31,20 @@ export function resolveEnvelope(payload, provider) {
   const version = resolvePointer(payload, provider.versionTokens)
   const type = resolvePointer(payload, provider.typeTokens)
   return {
-    version: version.found && typeof version.value === 'string' && version.value !== '' ? version.value : null,
-    versionKind: version.found ? kindOf(version.value) : 'absent',
-    type: type.found && typeof type.value === 'string' && type.value !== '' ? type.value : null,
-    typeKind: type.found ? kindOf(type.value) : 'absent',
+    version: version.found && displayStableIdentifier(version.value) ? version.value : null,
+    versionKind: version.found ? envelopeKind(version.value) : 'absent',
+    type: type.found && displayStableIdentifier(type.value) ? type.value : null,
+    typeKind: type.found ? envelopeKind(type.value) : 'absent',
   }
+}
+
+function displayStableIdentifier(value) {
+  return typeof value === 'string' && value !== '' && sanitize(value, value.length) === value
+}
+
+function envelopeKind(value) {
+  if (typeof value === 'string' && value !== '' && !displayStableIdentifier(value)) return 'string that changes when rendered'
+  return kindOf(value)
 }
 
 function kindOf(value) {

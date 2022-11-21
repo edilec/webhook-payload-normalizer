@@ -425,7 +425,7 @@ export async function normalizeJob(job, options = {}) {
         file,
         pointer,
         ruleId: 'event-version-unresolved',
-        message: `The provider version at "${provider.versionAt}" is ${envelope.versionKind === 'absent' ? 'absent' : `a ${envelope.versionKind}, not a non-empty string`}, so which mapping applies is not something this run established. Nothing was mapped.`,
+        message: `The provider version at "${provider.versionAt}" is ${envelope.versionKind === 'absent' ? 'absent' : `a ${envelope.versionKind}, not an unambiguous non-empty string`}, so which mapping applies is not something this run established. Nothing was mapped.`,
         evidence: provider.versionAt,
         suggestion: 'Correct the provider\'s "versionAt" pointer, or the fixture.',
       })
@@ -453,7 +453,7 @@ export async function normalizeJob(job, options = {}) {
         file,
         pointer,
         ruleId: 'event-type-unresolved',
-        message: `The provider event name at "${provider.typeAt}" is ${envelope.typeKind === 'absent' ? 'absent' : `a ${envelope.typeKind}, not a non-empty string`}, so which mapping applies is not something this run established. Nothing was mapped.`,
+        message: `The provider event name at "${provider.typeAt}" is ${envelope.typeKind === 'absent' ? 'absent' : `a ${envelope.typeKind}, not an unambiguous non-empty string`}, so which mapping applies is not something this run established. Nothing was mapped.`,
         evidence: provider.typeAt,
         suggestion: 'Correct the provider\'s "typeAt" pointer, or the fixture.',
       })

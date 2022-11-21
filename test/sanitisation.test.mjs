@@ -183,7 +183,7 @@ test('a forbidden character in a mapped value is gone, and the change is reporte
   }
 })
 
-test('a forbidden character in an event name reaches the report only through evidence, sanitised', async () => {
+test('a forbidden character in an event name is incomplete without a false missing-mapping claim', async () => {
   for (const [name, code] of FORBIDDEN) {
     const report = await normalizeJob({
       canonicalVersion: '1',
@@ -197,7 +197,9 @@ test('a forbidden character in an event name reaches the report only through evi
     })
 
     assert.deepEqual(scanReport(report), [], `${name} survived through an event name`)
-    assert.equal(report.findings.some((finding) => finding.ruleId === 'mapping-event-unknown'), true)
+    assert.equal(report.status, 'incomplete')
+    assert.equal(report.findings.some((finding) => finding.ruleId === 'event-type-unresolved'), true)
+    assert.equal(report.findings.some((finding) => finding.ruleId === 'mapping-event-unknown'), false)
   }
 })
 

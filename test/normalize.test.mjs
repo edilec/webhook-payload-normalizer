@@ -158,6 +158,33 @@ test('a version that arrives as a number is unresolved, not read as its digits',
   assert.equal(report.findings.some((finding) => finding.ruleId === 'event-version-unresolved'), true)
 })
 
+test('an envelope value changed by display sanitisation is unknown, not a visibly false missing mapping', async () => {
+  const job = (payload, version) => ({
+    canonicalVersion: '1', providers: [ACME], mappings: [acmeMapping('2')],
+    events: [{ ref: 'marked', provider: 'acme', ...(version === undefined ? {} : { version }), payload }],
+  })
+  const good = await normalizeJob(job(ACME_PAYLOAD))
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.normalized, 1)
+
+  for (const version of ['2\u200e', '\u200e', '2 ']) {
+    const report = await normalizeJob(job({ ...ACME_PAYLOAD, api_version: version }, '2'))
+    assert.equal(report.status, 'incomplete', JSON.stringify(report.findings))
+    assert.equal(report.summary.normalized, 0)
+    assert.ok(report.findings.some((finding) => finding.ruleId === 'event-version-unresolved'))
+    assert.ok(!report.findings.some((finding) => ['mapping-version-unknown', 'event-version-conflict'].includes(finding.ruleId)))
+  }
+
+  const type = await normalizeJob(job({ ...ACME_PAYLOAD, event: 'order_created\u200e' }))
+  assert.equal(type.status, 'incomplete')
+  assert.ok(type.findings.some((finding) => finding.ruleId === 'event-type-unresolved'))
+  assert.ok(!type.findings.some((finding) => finding.ruleId === 'mapping-event-unknown'))
+
+  const genuineUnknown = await normalizeJob(job({ ...ACME_PAYLOAD, api_version: '3' }))
+  assert.equal(genuineUnknown.status, 'fail')
+  assert.ok(genuineUnknown.findings.some((finding) => finding.ruleId === 'mapping-version-unknown'))
+})
+
 test('a source event name is matched exactly: order.created is not order_created', async () => {
   const report = await normalizeJob({
     canonicalVersion: '1',
