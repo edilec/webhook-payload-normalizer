@@ -185,6 +185,24 @@ test('an envelope value changed by display sanitisation is unknown, not a visibl
   assert.ok(genuineUnknown.findings.some((finding) => finding.ruleId === 'mapping-version-unknown'))
 })
 
+test('a lossy mapping-side source event name is refused before asserting a payload lacks its mapping', async () => {
+  const control = await normalizeJob({
+    canonicalVersion: '1', providers: [ACME], mappings: [acmeMapping('2')],
+    events: [{ ref: 'one', provider: 'acme', payload: ACME_PAYLOAD }],
+  })
+  assert.equal(control.status, 'pass')
+  for (const sourceType of ['order_created\u200e', '\u200e']) {
+    const report = await normalizeJob({
+      canonicalVersion: '1', providers: [ACME],
+      mappings: [{ ...acmeMapping('2'), sourceType }],
+      events: [{ ref: 'one', provider: 'acme', payload: ACME_PAYLOAD }],
+    })
+    assert.equal(report.status, 'incomplete')
+    assert.ok(report.findings.some((finding) => finding.ruleId === 'job-invalid'))
+    assert.ok(!report.findings.some((finding) => finding.ruleId === 'mapping-event-unknown'))
+  }
+})
+
 test('a source event name is matched exactly: order.created is not order_created', async () => {
   const report = await normalizeJob({
     canonicalVersion: '1',

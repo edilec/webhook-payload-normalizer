@@ -40,6 +40,18 @@ test('a valid job validates, and carries its defaults', () => {
   assert.deepEqual(result.limits, { ...DEFAULT_LIMITS })
 })
 
+test('a mapping source event name must remain identifiable after safe rendering', () => {
+  assert.deepEqual(rules(VALID), [])
+  for (const sourceType of ['order_created\u200e', '\u200e', 'order  created']) {
+    assert.deepEqual(
+      rules({ ...VALID, mappings: [{ ...VALID.mappings[0], sourceType }] }),
+      ['job-invalid /mappings/0/sourceType'],
+    )
+  }
+  const visible = { ...VALID, mappings: [{ ...VALID.mappings[0], sourceType: 'order created' }] }
+  assert.deepEqual(rules(visible), [])
+})
+
 test('an unknown key is refused at every level of the schema', () => {
   assert.deepEqual(rules({ ...VALID, unknownfields: 'reject' }), ['job-unknown-key /unknownfields'])
   assert.deepEqual(rules({ ...VALID, providers: [{ ...VALID.providers[0], versionat: '/v' }] }), ['job-unknown-key /providers/0/versionat'])

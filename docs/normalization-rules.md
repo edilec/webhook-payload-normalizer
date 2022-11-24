@@ -86,7 +86,7 @@ Each of these also sets `incomplete`, so the run exits 2.
 | `job-unreadable` | `error` | The job file could not be opened, or is not a regular file. |
 | `job-not-utf8` | `error` | The job file is not valid UTF-8. |
 | `job-not-json` | `error` | The job file is not valid JSON. The message carries the parser's position, line and column, never the snippet the parser quotes back. |
-| `job-invalid` | `error` | The job does not match the schema below. |
+| `job-invalid` | `error` | The job does not match the schema below. A mapping `sourceType` that changes when rendered safely (for example an invisible mark or folded whitespace) is invalid before any payload comparison. |
 | `job-unknown-key` | `error` | The job declares a key the schema does not define. A typo is refused, never ignored. |
 | `mapping-duplicate` | `error` | Two mappings claim one `(provider, version, sourceType)`. Which applies is not something this tool will guess. |
 | `mapping-unsupported-construct` | `error` | A pointer, type or transform outside the supported subset. Reported as unsupported, never treated as an absent field. |

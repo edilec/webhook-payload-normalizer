@@ -346,6 +346,10 @@ function validateMappings(raw, providers, defaultPolicy, limits, problems) {
       problem(problems, `${at}/sourceType`, 'A mapping "sourceType" must be a non-empty string of at most 120 characters.')
       return
     }
+    if (sanitize(entry.sourceType, entry.sourceType.length) !== entry.sourceType) {
+      problem(problems, `${at}/sourceType`, 'A mapping "sourceType" must remain unchanged when rendered safely; otherwise a different event could appear to name the same mapping.')
+      return
+    }
     if (typeof entry.canonicalType !== 'string' || !NAME.test(entry.canonicalType)) {
       problem(problems, `${at}/canonicalType`, 'A mapping "canonicalType" must match [A-Za-z0-9][A-Za-z0-9._-]{0,63}.')
       return
