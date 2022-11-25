@@ -203,6 +203,21 @@ test('a lossy mapping-side source event name is refused before asserting a paylo
   }
 })
 
+test('long event names that share a rendered prefix explain the raw difference', async () => {
+  const job = (name) => ({
+    canonicalVersion: '1', providers: [ACME],
+    mappings: [{ ...acmeMapping('2'), sourceType: `${'A'.repeat(60)}X` }],
+    events: [{ ref: 'one', provider: 'acme', payload: { ...ACME_PAYLOAD, event: name } }],
+  })
+  const exact = await normalizeJob(job(`${'A'.repeat(60)}X`))
+  assert.equal(exact.status, 'pass')
+  const different = await normalizeJob(job(`${'A'.repeat(60)}Y`))
+  assert.equal(different.status, 'fail')
+  const missing = different.findings.find((finding) => finding.ruleId === 'mapping-event-unknown')
+  assert.match(missing.message, /raw UTF-16 offset 60: U\+0059 versus U\+0058/)
+  assert.equal(different.findings.some((finding) => finding.ruleId === 'event-type-unresolved'), false)
+})
+
 test('a source event name is matched exactly: order.created is not order_created', async () => {
   const report = await normalizeJob({
     canonicalVersion: '1',

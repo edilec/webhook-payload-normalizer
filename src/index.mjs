@@ -53,6 +53,16 @@ export const REPORT_SCHEMA_VERSION = '1'
 const JOB_OPTION_KEYS = Object.freeze(['baseDir', 'inputs', 'label', 'limits', 'outPath'])
 const FILE_OPTION_KEYS = Object.freeze(['label', 'limits', 'outPath'])
 
+function firstDifferentUnit(left, right) {
+  let offset = 0
+  while (offset < left.length && offset < right.length && left.charCodeAt(offset) === right.charCodeAt(offset)) offset += 1
+  return offset
+}
+
+function unitAt(value, offset) {
+  return offset < value.length ? `U+${value.charCodeAt(offset).toString(16).toUpperCase().padStart(4, '0')}` : '<end>'
+}
+
 /**
  * Containment, decided on real paths.
  *
@@ -479,11 +489,18 @@ export async function normalizeJob(job, options = {}) {
 
     const mapping = byKey.get(`${provider.name}@${envelope.version}@${envelope.type}`)
     if (mapping === undefined) {
+      const rendered = sanitize(envelope.type, 60)
+      const collision = declared.mappings
+        .filter((candidate) => candidate.provider === provider.name && candidate.version === envelope.version &&
+          sanitize(candidate.sourceType, 60) === rendered)
+        .sort((left, right) => byCodeUnit(left.sourceType, right.sourceType))[0]
+      const offset = collision === undefined ? null : firstDifferentUnit(envelope.type, collision.sourceType)
+      const distinction = collision === undefined ? '' : ` The raw UTF-16 offset ${offset}: ${unitAt(envelope.type, offset)} versus ${unitAt(collision.sourceType, offset)} in a declared mapping.`
       record(collector, {
         file,
         pointer,
         ruleId: 'mapping-event-unknown',
-        message: `Provider "${sanitize(provider.name, 60)}" version "${sanitize(envelope.version, 40)}" has mappings, but none of them claims the event "${sanitize(envelope.type, 60)}", so the payload was refused.`,
+        message: `Provider "${sanitize(provider.name, 60)}" version "${sanitize(envelope.version, 40)}" has mappings, but none of them claims the event "${rendered}", so the payload was refused.${distinction}`,
         evidence: envelope.type,
         suggestion: 'Write a mapping for this source event type, or drop the fixture from the job.',
       })

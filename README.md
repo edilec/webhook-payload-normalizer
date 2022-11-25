@@ -114,7 +114,8 @@ The full schema, the rule catalog and the limits are in
   rendered safely (for example, an invisible mark or folded whitespace), the comparison is
   incomplete instead: it cannot truthfully claim that a visibly identical mapping is absent.
   A declared mapping source event name with the same ambiguity is an invalid job, reported
-  before comparing any payloads.
+  before comparing any payloads. When two long event names share a truncated excerpt,
+  the refusal identifies their first differing raw UTF-16 unit.
 - **Nothing is converted.** `as` is a type check. A `"4250"` declared `integer` is a mismatch, not
   a number. A value outside a field's declared `values` map is refused, not carried across.
 - **Provenance survives.** Every canonical event keeps the provider, the provider's own version
