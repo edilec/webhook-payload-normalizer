@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
-import { createServer } from 'node:http'
 import { mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -11,30 +10,19 @@ import { promisify } from 'node:util'
 const run = promisify(execFile)
 const projectDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const CLI = join(projectDirectory, 'bin/webhook-payload-normalizer.mjs')
+const DENY_NETWORK = join(projectDirectory, 'test/support/deny-network.mjs')
 
 /**
- * No socket is opened, and the proof is a real listener watching.
+ * No socket is opened, including by this test.
  *
  * This is a webhook tool, so a payload full of URLs is exactly the input a
  * careless implementation would decide to fetch: a `$ref` to resolve, a schema
- * to download, a delivery to retry. It does none of that. The test below starts
- * a real HTTP server on a real loopback port, puts that server's own URL into
- * the job and into every payload the run touches, and asserts the server saw
- * nothing at all.
+ * to download, a delivery to retry. The child process installs guards before
+ * loading the CLI; a network attempt throws before any socket can be opened.
  */
 
-test('a job full of loopback URLs opens no connection', async () => {
-  const server = createServer((request, response) => {
-    response.end('should never be reached')
-  })
-  const connections = []
-  server.on('connection', (socket) => connections.push(socket.remoteAddress ?? 'unknown'))
-  const requests = []
-  server.on('request', (request) => requests.push(request.url))
-
-  await new Promise((done) => server.listen(0, '127.0.0.1', done))
-  const { port } = server.address()
-  const url = `http://127.0.0.1:${port}/schema.json`
+test('a job full of inert URLs runs with socket operations disabled', async () => {
+  const url = 'http://127.0.0.1:8080/schema.json'
   const base = await mkdtemp(join(tmpdir(), 'webhook-payload-normalizer-network-'))
 
   try {
@@ -66,21 +54,18 @@ test('a job full of loopback URLs opens no connection', async () => {
       }],
     }))
 
-    const { stdout } = await run(process.execPath, [CLI, '--job', jobPath, '--json'], { cwd: projectDirectory })
+    const { stdout } = await run(process.execPath, ['--import', DENY_NETWORK, CLI, '--job', jobPath, '--json'], { cwd: projectDirectory })
     const report = JSON.parse(stdout)
 
     assert.equal(report.status, 'pass')
     assert.equal(report.normalization.events[0].canonical.data.callback, url, 'the URL is data, and data is carried across')
-    assert.deepEqual(connections, [], 'the listener must have seen no connection')
-    assert.deepEqual(requests, [], 'and no request')
   } finally {
     await rm(base, { recursive: true, force: true })
-    await new Promise((done) => server.close(done))
   }
 })
 
 /**
- * A secondary guard. The test above is the one that proves it; this one catches
+ * A secondary guard. The test above exercises the real CLI; this one catches
  * a future edit that imports the capability in the first place.
  */
 test('the package imports no networking primitive at all', async () => {

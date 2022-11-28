@@ -130,8 +130,8 @@ The full schema, the rule catalog and the limits are in
   part reads as `null`, never as one that holds.
 - **Two runs over the same bytes produce byte-identical stdout.** No wall clock, no locale, no
   random source, no directory listing, and no filesystem or JSON key order reaches the output.
-- **No socket is opened.** The package imports no networking primitive; a test opens a real
-  loopback listener, plants its URL through the job and the payload, and asserts it saw nothing.
+- **No socket is opened.** The package imports no networking primitive; a test runs the real CLI
+  with socket operations disabled before it loads, passing inert URL data through the job and payload.
 
 ## Limits and non-goals
 
