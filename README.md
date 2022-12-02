@@ -121,6 +121,9 @@ The full schema, the rule catalog and the limits are in
 - **Provenance survives.** Every canonical event keeps the provider, the provider's own version
   string and the provider's own event id. A payload whose id cannot be read is refused rather than
   normalized anonymously.
+- **Invisible payload characters are explicit.** Default-ignorable characters in version or event
+  names make selection incomplete; in mapped string data they become spaces with a `text-sanitised`
+  finding. This can change emoji presentation, so the altered value is never passed off as exact.
 - **A field nobody mapped is handled by declared policy** — `preserve`, `report` or `reject` — with
   one finding per field. Silence is not one of the policies.
 - **Unknown is never a pass.** An unreadable input, a bound that was hit, an equivalence group the

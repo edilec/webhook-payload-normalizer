@@ -244,3 +244,49 @@ test('the clean example passes and the broken example fails, as the README says'
   assert.equal(JSON.parse(broken.stdout).status, 'fail')
   assert.equal(JSON.parse(broken.stdout).summary.errors, 4)
 })
+
+test('a default-ignorable payload version is unresolved, not a visible version conflict', async () => {
+  const hidden = String.fromCharCode(0x034f)
+  await withJob(job([{ ref: 'one', provider: 'acme', version: '2', payload: { ...PAYLOAD, api_version: `2${hidden}` } }]), async (jobPath) => {
+    const result = await cli(['--job', jobPath, '--json'])
+    const report = JSON.parse(result.stdout)
+    assert.equal(result.code, 2)
+    assert.equal(report.status, 'incomplete')
+    assert.equal(report.summary.normalized, 0)
+    assert.equal(report.findings.some((finding) => finding.ruleId === 'event-version-unresolved'), true)
+    assert.equal(report.findings.some((finding) => finding.ruleId === 'event-version-conflict'), false)
+    assert.equal(result.stdout.includes(hidden), false)
+  })
+})
+
+test('default-ignorable mapped string data is replaced and reported', async () => {
+  for (const [raw, rendered] of [
+    [`O${String.fromCharCode(0x034f)}1`, 'O 1'],
+    [`\u2764${String.fromCharCode(0xfe0f)}`, '\u2764 '],
+  ]) {
+    await withJob(job([{ ref: 'one', provider: 'acme', payload: { ...PAYLOAD, data: { order_id: raw } } }]), async (jobPath) => {
+      const result = await cli(['--job', jobPath, '--json'])
+      const report = JSON.parse(result.stdout)
+      assert.equal(result.code, 0)
+      assert.equal(report.status, 'pass')
+      assert.equal(report.normalization.events[0].canonical.data.orderId, rendered)
+      assert.equal(report.findings.some((finding) => finding.ruleId === 'text-sanitised'), true)
+      assert.equal(result.stdout.includes(raw), false)
+    })
+  }
+})
+
+test('a 32-character declared version remains legal and 33 characters are refused', async () => {
+  for (const [length, expectedCode] of [[32, 0], [33, 2]]) {
+    const version = 'v'.repeat(length)
+    await withJob(job([{ ref: 'one', provider: 'acme', version, payload: { ...PAYLOAD, api_version: version } }], {
+      mappings: [{ ...MAPPING, version }],
+    }), async (jobPath) => {
+      const result = await cli(['--job', jobPath, '--json'])
+      const report = JSON.parse(result.stdout)
+      assert.equal(result.code, expectedCode)
+      assert.equal(report.status, length === 32 ? 'pass' : 'incomplete')
+      assert.equal(report.findings.some((finding) => finding.ruleId === 'job-invalid'), length === 33)
+    })
+  }
+})

@@ -43,12 +43,14 @@ export function byCodeUnit(left, right) {
  * - The bidirectional formatting characters. U+202E RIGHT-TO-LEFT OVERRIDE
  *   reverses everything displayed after it, so a provider event id can be made
  *   to read as something else entirely while the bytes say otherwise.
+ * - Default-ignorable characters, including U+034F, which can make a version
+ *   look identical to another while changing its raw comparison key.
  *
  * This is applied to identifiers, not only to excerpts. A provider name or an
  * event id carrying U+0085 forges a report line exactly as well as an evidence
  * excerpt would, and identifiers are what this tool prints most.
  */
-const CONTROL = /[\u0000-\u001F\u007F-\u009F\u2028\u2029\u200E\u200F\u202A-\u202E\u2066-\u2069]/g
+const CONTROL = /[\u0000-\u001F\u007F-\u009F\u2028\u2029\u200E\u200F\u202A-\u202E\u2066-\u2069\p{Default_Ignorable_Code_Point}]/gu
 
 export const TEXT_LIMIT = 160
 

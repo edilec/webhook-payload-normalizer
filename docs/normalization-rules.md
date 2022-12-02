@@ -52,7 +52,7 @@ One finding per unclaimed field. The field's pointer is the finding's `evidence`
 
 | Rule | Severity | Raised when |
 | --- | --- | --- |
-| `text-sanitised` | `warning` | A string reaching output carried a control, DEL, C1, line-separator or bidi formatting character. Each was replaced with a space, and this finding is the record that it happened. |
+| `text-sanitised` | `warning` | A mapped string reaching output carried a control, DEL, C1, line-separator, bidi formatting, or default-ignorable character. Each was replaced with a space, and this finding is the record that it happened; emoji presentation selectors can change too. |
 
 ### Output
 
