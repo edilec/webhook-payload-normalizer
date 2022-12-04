@@ -64,6 +64,17 @@ test('a job full of inert URLs runs with socket operations disabled', async () =
   }
 })
 
+test('the preload refuses a local data URL fetch before any network operation', async () => {
+  await assert.rejects(
+    () => run(process.execPath, [
+      '--import', DENY_NETWORK,
+      '--input-type=module',
+      '--eval', "await fetch('data:text/plain,probe')",
+    ], { cwd: projectDirectory }),
+    /A network operation was attempted during an offline test/,
+  )
+})
+
 /**
  * A secondary guard. The test above exercises the real CLI; this one catches
  * a future edit that imports the capability in the first place.
