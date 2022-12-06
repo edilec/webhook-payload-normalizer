@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { compareCanonical, normalizeJob } from '../src/index.mjs'
+import { compareCanonical, exitCodeFor, formatReport, normalizeJob } from '../src/index.mjs'
 
 /**
  * The public API, and the two claims this tool exists to make good on:
@@ -203,18 +203,30 @@ test('a lossy mapping-side source event name is refused before asserting a paylo
   }
 })
 
-test('long event names that share a rendered prefix explain the raw difference', async () => {
+test('long event names retain exact matching without disclosing hidden suffixes or raw units', async () => {
+  const mapped = `${'A'.repeat(60)}token=RED`
+  const observed = `${'A'.repeat(60)}token=BLUE`
   const job = (name) => ({
     canonicalVersion: '1', providers: [ACME],
-    mappings: [{ ...acmeMapping('2'), sourceType: `${'A'.repeat(60)}X` }],
+    mappings: [{ ...acmeMapping('2'), sourceType: mapped }],
     events: [{ ref: 'one', provider: 'acme', payload: { ...ACME_PAYLOAD, event: name } }],
   })
-  const exact = await normalizeJob(job(`${'A'.repeat(60)}X`))
+  const exact = await normalizeJob(job(mapped))
   assert.equal(exact.status, 'pass')
-  const different = await normalizeJob(job(`${'A'.repeat(60)}Y`))
+  assert.equal(exact.summary.checked, 1)
+  const different = await normalizeJob(job(observed))
   assert.equal(different.status, 'fail')
+  assert.equal(different.summary.checked, 1)
+  assert.equal(exitCodeFor(different), 1)
   const missing = different.findings.find((finding) => finding.ruleId === 'mapping-event-unknown')
-  assert.match(missing.message, /raw UTF-16 offset 60: U\+0059 versus U\+0058/)
+  assert.deepEqual(missing.location, { file: 'job.json', pointer: '/events/0' })
+  assert.equal(missing.evidence, 'job /events/0; job /mappings/0/sourceType')
+  const reportRow = JSON.stringify(missing)
+  const humanRow = formatReport(different).split('\n').find((line) => line.includes('mapping-event-unknown'))
+  for (const value of ['token=RED', 'token=BLUE', 'U+0052', 'U+0042', 'raw UTF-16 offset']) {
+    assert.equal(reportRow.includes(value), false)
+    assert.equal(humanRow.includes(value), false)
+  }
   assert.equal(different.findings.some((finding) => finding.ruleId === 'event-type-unresolved'), false)
 })
 

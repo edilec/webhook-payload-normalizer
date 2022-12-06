@@ -17,7 +17,7 @@ These are verdicts this tool reached. The run completed; the fixture set failed.
 | --- | --- | --- |
 | `provider-unknown` | `error` | A fixture names a provider the job does not declare. It is refused rather than mapped with somebody else's rules. |
 | `mapping-version-unknown` | `error` | No mapping declares that provider at that version. **There is no fallback**: the nearest known version is not used, versions are never compared numerically, and there is no "latest". |
-| `mapping-event-unknown` | `error` | The provider and version have mappings, but none claims that source event name. Matching is exact and case-sensitive. If a declared event name has the same bounded excerpt, the message also identifies the first differing raw UTF-16 unit. |
+| `mapping-event-unknown` | `error` | The provider and version have mappings, but none claims that source event name. Matching is exact and case-sensitive. Evidence identifies job event and mapping source positions without echoing hidden event-name units or values. |
 | `event-version-conflict` | `error` | The job declares a version for the fixture and the payload says another. Two answers is not one answer. |
 
 ### Mapping — a payload that could not be mapped
