@@ -299,6 +299,30 @@ test('the declared version and the payload version must agree, and neither wins'
   assert.deepEqual(report.findings.filter((finding) => finding.severity === 'error').map((finding) => finding.ruleId), ['event-version-conflict'])
 })
 
+test('version conflict keeps exact comparison without echoing either version value', async () => {
+  const job = (declared, observed) => ({
+    canonicalVersion: '1', providers: [ACME], mappings: [acmeMapping('2')],
+    events: [{ ref: 'claimed', provider: 'acme', version: declared, payload: { ...ACME_PAYLOAD, api_version: observed } }],
+  })
+  const good = await normalizeJob(job('2', '2'))
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+  for (const [declared, observed] of [
+    ['2', 'token=SYNTHETIC_SECRET_CANARY'],
+    ['SYNTHETIC_SECRET_CANARY', '2'],
+  ]) {
+    const report = await normalizeJob(job(declared, observed))
+    assert.equal(report.status, 'fail')
+    assert.equal(report.summary.checked, 1)
+    assert.equal(exitCodeFor(report), 1)
+    const conflict = report.findings.find((finding) => finding.ruleId === 'event-version-conflict')
+    assert.deepEqual(conflict.location, { file: 'job.json', pointer: '/events/0' })
+    assert.equal(conflict.evidence, 'job /events/0/version; provider versionAt declaration')
+    assert.equal(JSON.stringify(report).includes('SYNTHETIC_SECRET_CANARY'), false)
+    assert.equal(formatReport(report).includes('SYNTHETIC_SECRET_CANARY'), false)
+  }
+})
+
 /** No conversion, anywhere. */
 
 test('a declared integer that arrives as a string is a mismatch, never a conversion', async () => {

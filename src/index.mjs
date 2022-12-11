@@ -439,8 +439,8 @@ export async function normalizeJob(job, options = {}) {
         file,
         pointer,
         ruleId: 'event-version-conflict',
-        message: `The job declares fixture "${sanitize(event.ref, 80)}" as version "${sanitize(event.version, 40)}" and the payload says "${sanitize(envelope.version, 40)}". Two answers is not one answer, so nothing was mapped.`,
-        evidence: envelope.version,
+        message: 'The fixture declaration and its payload provide different version values. Neither answer wins, so nothing was mapped.',
+        evidence: `job ${pointer}/version; provider versionAt declaration`,
         suggestion: 'Correct the declared "version", or the fixture.',
       })
       counts.checked += 1
