@@ -468,9 +468,9 @@ export async function normalizeJob(job, options = {}) {
         file,
         pointer,
         ruleId: 'mapping-version-unknown',
-        message: `No mapping declares provider "${sanitize(provider.name, 60)}" version "${sanitize(envelope.version, 40)}". This tool does not fall back to the nearest known version, so the payload was refused rather than mapped with rules written for something else.`,
-        evidence: envelope.version,
-        suggestion: `Write a mapping for this version. Versions with a mapping: ${[...known].sort(byCodeUnit).join(', ') || 'none'}.`,
+        message: 'No mapping declares the payload version for this provider. This tool does not fall back to a nearby version, so the payload was refused rather than mapped with different rules.',
+        evidence: `job ${pointer}; provider versionAt declaration; job /mappings`,
+        suggestion: 'Compare the provider versionAt field with the mapping version declarations; add an exact mapping or correct the fixture.',
       })
       counts.checked += 1
       counts.rejected += 1

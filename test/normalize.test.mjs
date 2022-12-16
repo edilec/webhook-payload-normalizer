@@ -133,6 +133,25 @@ test('an unknown version is refused, not mapped with the rules of a known one', 
   assert.deepEqual(report.findings.filter((finding) => finding.severity === 'error').map((finding) => finding.ruleId), ['mapping-version-unknown'])
 })
 
+test('unknown mapping version refuses a payload without echoing its opaque version', async () => {
+  const job = (payloadVersion) => ({
+    canonicalVersion: '1', providers: [ACME], mappings: [acmeMapping('2')],
+    events: [{ ref: 'one', provider: 'acme', payload: { ...ACME_PAYLOAD, api_version: payloadVersion } }],
+  })
+  const good = await normalizeJob(job('2'))
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+  const unknown = await normalizeJob(job('token=SYNTHETIC_SECRET_CANARY'))
+  assert.equal(unknown.status, 'fail')
+  assert.equal(unknown.summary.checked, 1)
+  assert.equal(exitCodeFor(unknown), 1)
+  const finding = unknown.findings.find((entry) => entry.ruleId === 'mapping-version-unknown')
+  assert.deepEqual(finding.location, { file: 'job.json', pointer: '/events/0' })
+  assert.equal(finding.evidence, 'job /events/0; provider versionAt declaration; job /mappings')
+  assert.equal(JSON.stringify(unknown).includes('SYNTHETIC_SECRET_CANARY'), false)
+  assert.equal(formatReport(unknown).includes('SYNTHETIC_SECRET_CANARY'), false)
+})
+
 test('a version is compared literally: "2.0" is not "2"', async () => {
   const report = await normalizeJob({
     canonicalVersion: '1',
