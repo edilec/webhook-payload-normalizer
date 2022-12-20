@@ -152,6 +152,34 @@ test('unknown mapping version refuses a payload without echoing its opaque versi
   assert.equal(formatReport(unknown).includes('SYNTHETIC_SECRET_CANARY'), false)
 })
 
+test('unused mapping finding locates its row without echoing mapping version or event label', async () => {
+  const job = (extra = null) => ({
+    canonicalVersion: '1', providers: [ACME],
+    mappings: [acmeMapping('2'), ...(extra === null ? [] : [extra])],
+    events: [{ ref: 'one', provider: 'acme', payload: ACME_PAYLOAD }],
+  })
+  const good = await normalizeJob(job())
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+  assert.equal(good.findings.some((entry) => entry.ruleId === 'mapping-unused'), false)
+
+  for (const extra of [
+    { ...acmeMapping('2'), sourceType: 'SYNTHETIC_SECRET_CANARY' },
+    { ...acmeMapping('SYNTHETIC_SECRET_CANARY'), sourceType: 'other_event' },
+  ]) {
+    const report = await normalizeJob(job(extra))
+    assert.equal(report.status, 'pass')
+    assert.equal(report.summary.checked, 1)
+    assert.equal(exitCodeFor(report), 0)
+    const finding = report.findings.find((entry) => entry.ruleId === 'mapping-unused')
+    assert.deepEqual(finding.location, { file: 'job.json', pointer: '/mappings/1' })
+    assert.equal(finding.evidence, 'job /mappings/1')
+    assert.equal(JSON.stringify(finding).includes('SYNTHETIC_SECRET_CANARY'), false)
+    const humanRow = formatReport(report).split('\n').find((line) => line.includes('mapping-unused'))
+    assert.equal(humanRow.includes('SYNTHETIC_SECRET_CANARY'), false)
+  }
+})
+
 test('a version is compared literally: "2.0" is not "2"', async () => {
   const report = await normalizeJob({
     canonicalVersion: '1',

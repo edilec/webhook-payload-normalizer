@@ -539,8 +539,8 @@ export async function normalizeJob(job, options = {}) {
     record(collector, {
       pointer: `/mappings/${mapping.index}`,
       ruleId: 'mapping-unused',
-      message: `No fixture in this job selected the mapping for provider "${sanitize(mapping.provider, 60)}" version "${sanitize(mapping.version, 40)}" event "${sanitize(mapping.sourceType, 60)}", so nothing here exercises it.`,
-      evidence: mapping.key,
+      message: 'No fixture in this job selected this declared mapping, so nothing here exercises it.',
+      evidence: `job /mappings/${mapping.index}`,
     })
   }
 

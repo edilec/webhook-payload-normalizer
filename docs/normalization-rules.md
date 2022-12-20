@@ -122,7 +122,7 @@ Each of these also sets `incomplete`. A bound that was hit is never a smaller an
 
 | Rule | Severity | Raised when |
 | --- | --- | --- |
-| `mapping-unused` | `info` | No fixture in the job selected a declared mapping, so nothing here exercises it. |
+| `mapping-unused` | `info` | No fixture in the job selected a declared mapping, so nothing here exercises it. The finding names the mapping row, not its opaque key. |
 
 ## The job schema
 
