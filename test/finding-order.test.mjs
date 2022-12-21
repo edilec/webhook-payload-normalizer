@@ -19,7 +19,7 @@ const CLI = join(projectDirectory, 'bin/webhook-payload-normalizer.mjs')
  * Scanning the source for a comparator name proves nothing: `Intl.Collator`
  * collates like `localeCompare` and spells like neither, and either of them can
  * be substituted at one call site at a time while the grep stays green. Pinning
- * `byCodeUnit` itself proves nothing either, for the same reason -- eleven
+ * `byCodeUnit` itself proves nothing either, for the same reason -- ten
  * call sites, each swappable on its own.
  *
  * So each test below drives values whose collation order and code-unit order
@@ -30,7 +30,7 @@ const CLI = join(projectDirectory, 'bin/webhook-payload-normalizer.mjs')
  * after it by collation, because collation treats the punctuation as
  * ignorable.
  *
- * The last test names the one site where no such value exists, and proves the
+ * A later test names the one site where no such value exists, and proves the
  * claim by enumerating every ordered pair of the real values rather than
  * asserting it.
  */
@@ -362,19 +362,13 @@ test('an equivalence mismatch names the first differing field in code units', as
   assert.equal(mismatch[0].evidence, 'data/Z')
 })
 
-/**
- * Site 11 -- the list of known versions a refusal offers as a suggestion.
- *
- * A version string may hold a dot, a dash or an underscore, so this list is as
- * capable of collating differently as any other, and it reaches the reader of
- * the report as advice about what to do next.
- */
-test('the known versions named in a refusal order in code units', async () => {
-  const { code, report } = await normalize(writeJob({
+/** A refusal must not turn a list of opaque mapping versions into report advice. */
+test('unknown-version CLI refusal locates declarations without listing version values', async () => {
+  const { code, report, stderr } = await normalize(writeJob({
     canonicalVersion: '1',
     providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
     mappings: [
-      { provider: 'acme', version: 'a_b', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
+      { provider: 'acme', version: 'SYNTHETIC_SECRET_CANARY', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
       { provider: 'acme', version: 'a', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
       { provider: 'acme', version: 'a-b', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
       { provider: 'acme', version: 'Z', sourceType: 'e', canonicalType: 'c', sourceId: '/id', fields: [{ from: '/v', to: 'value', as: 'string' }] },
@@ -385,7 +379,9 @@ test('the known versions named in a refusal order in code units', async () => {
 
   assert.equal(code, 1)
   assert.equal(refusal.length, 1)
-  assert.equal(refusal[0].suggestion, 'Write a mapping for this version. Versions with a mapping: Z, a, a-b, a_b.')
+  assert.equal(refusal[0].evidence, 'job /events/0; provider versionAt declaration; job /mappings')
+  assert.equal(JSON.stringify(refusal[0]).includes('SYNTHETIC_SECRET_CANARY'), false)
+  assert.equal(stderr.includes('SYNTHETIC_SECRET_CANARY'), false)
 })
 
 /**
