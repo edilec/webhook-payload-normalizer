@@ -81,7 +81,7 @@ function emptyCounts() {
 }
 
 function emptyNormalization() {
-  return { canonicalVersion: null, unknownFields: null, providers: [], mappings: [], events: [], equivalence: [] }
+  return { schemaVersion: '2', canonicalVersion: null, unknownFields: null, providers: [], mappings: [], events: [], equivalence: [] }
 }
 
 function buildReport(collector, counts, normalization, limits, budget) {
@@ -665,12 +665,12 @@ export async function normalizeJob(job, options = {}) {
   }
 
   const normalization = {
+    schemaVersion: '2',
     canonicalVersion: declared.canonicalVersion,
     unknownFields: declared.unknownFields,
-    // ORDERING SITE 8 -- the provider list in the report.
-    providers: [...declared.providers.keys()].map((name) => sanitize(name, 80)).sort(byCodeUnit),
-    // ORDERING SITE 9 -- the mapping list in the report.
-    mappings: declared.mappings.map((mapping) => sanitize(mapping.key, 160)).sort(byCodeUnit),
+    // Catalog locations preserve declaration order without publishing identities.
+    providers: [...declared.providers.keys()].map((_, index) => `/providers/${index}`),
+    mappings: declared.mappings.map((mapping) => `/mappings/${mapping.index}`),
     events,
     equivalence,
   }

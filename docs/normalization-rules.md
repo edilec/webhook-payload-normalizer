@@ -257,9 +257,14 @@ large everywhere or nowhere, and two runs over the same bytes always agree.
 ## Report and exit codes
 
 The report is the Edilec report contract v1 envelope — `schemaVersion`, `tool`, `status`,
-`summary`, `findings` — plus one additional top-level object, `normalization`, carrying the
-canonical version, the policy, the provider and mapping lists, the normalized events in declared
-order, and the equivalence verdicts.
+`summary`, `findings` — plus one additional top-level object, `normalization`, carrying its own
+`schemaVersion: "2"`, the canonical version, the policy, provider and mapping source pointers,
+normalized events in declared order, and equivalence verdicts. The optional bundle is exactly
+that v2 `normalization` object. Provider pointers (`/providers/N`) and mapping pointers
+(`/mappings/N`) follow job declaration order, not the values they identify. Version 1 emitted
+provider names and composite mapping keys in these two arrays; consumers needing those values
+must look them up in the original job. The selected `events[].source` provenance and mapped
+payload data remain intentional output, not a redacted copy.
 
 Findings sort by `(location.file, location.pointer, ruleId, message, evidence)`, every comparison
 by UTF-16 code unit.

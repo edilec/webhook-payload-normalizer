@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import test from 'node:test'
+import { promisify } from 'node:util'
+
+import { normalizeJob } from '../src/index.mjs'
+
+const run = promisify(execFile)
+const CLI = new URL('../bin/webhook-payload-normalizer.mjs', import.meta.url)
+const EXAMPLE = JSON.parse(readFileSync(new URL('../examples/clean/job.json', import.meta.url), 'utf8'))
+const ACME_PAYLOAD = JSON.parse(readFileSync(new URL('../examples/clean/events/acme-order-created.json', import.meta.url), 'utf8'))
+const MAPPING_CANARY = 'token=SYNTHETIC_SECRET_CANARY'
+const PROVIDER_CANARY = 'SYNTHETIC_PROVIDER_CANARY'
+
+function cleanInlineJob() {
+  return {
+    canonicalVersion: EXAMPLE.canonicalVersion,
+    unknownFields: EXAMPLE.unknownFields,
+    providers: [structuredClone(EXAMPLE.providers[0])],
+    mappings: [structuredClone(EXAMPLE.mappings[0])],
+    events: [{ ref: 'acme-order', provider: 'acme', payload: structuredClone(ACME_PAYLOAD) }],
+  }
+}
+
+function withUnusedCatalogIdentities() {
+  const job = cleanInlineJob()
+  job.providers.push({ name: PROVIDER_CANARY, versionAt: '/api_version', typeAt: '/event' })
+  job.mappings.push({ ...structuredClone(job.mappings[0]), sourceType: MAPPING_CANARY })
+  return job
+}
+
+test('an unused provider and mapping expose only source pointers while exact event selection stays intact', async () => {
+  const control = await normalizeJob(cleanInlineJob())
+  const report = await normalizeJob(withUnusedCatalogIdentities())
+  assert.equal(control.status, 'pass')
+  assert.equal(report.status, 'pass')
+  assert.equal(report.summary.checked, 1)
+  assert.equal(JSON.stringify(report).includes(MAPPING_CANARY), false)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+  assert.equal(report.schemaVersion, '1')
+  assert.equal(report.normalization.schemaVersion, '2')
+  assert.deepEqual(report.normalization.providers, ['/providers/0', '/providers/1'])
+  assert.deepEqual(report.normalization.mappings, ['/mappings/0', '/mappings/1'])
+  assert.deepEqual(report.normalization.events, control.normalization.events)
+  assert.equal(report.normalization.events[0].source.provider, 'acme')
+  assert.equal(report.normalization.events[0].source.version, '2')
+  assert.equal(report.normalization.events[0].source.type, 'order_created')
+  assert.ok(report.findings.some((finding) => finding.ruleId === 'mapping-unused'))
+})
+
+test('the CLI report, human summary and v2 output bundle omit unused catalog canaries', async () => {
+  const base = await mkdtemp(join(tmpdir(), 'webhook-catalog-privacy-'))
+  try {
+    const input = join(base, 'job.json')
+    const output = join(base, 'bundle.json')
+    await writeFile(input, JSON.stringify(withUnusedCatalogIdentities()))
+    const { stdout, stderr } = await run(process.execPath, [CLI.pathname, '--job', input, '--out', output])
+    const report = JSON.parse(stdout)
+    const bundle = JSON.parse(await readFile(output, 'utf8'))
+    assert.equal(report.status, 'pass')
+    assert.equal(report.summary.checked, 1)
+    for (const stream of [stdout, stderr, JSON.stringify(bundle)]) {
+      assert.equal(stream.includes(MAPPING_CANARY), false)
+      assert.equal(stream.includes(PROVIDER_CANARY), false)
+    }
+    assert.equal(report.schemaVersion, '1')
+    assert.equal(bundle.schemaVersion, '2')
+    assert.deepEqual(bundle, report.normalization)
+    assert.deepEqual(bundle.providers, ['/providers/0', '/providers/1'])
+    assert.deepEqual(bundle.mappings, ['/mappings/0', '/mappings/1'])
+  } finally {
+    await rm(base, { recursive: true, force: true })
+  }
+})
+
+test('an invalid job still identifies the nested normalization shape without catalog values', async () => {
+  const report = await normalizeJob({})
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.schemaVersion, '1')
+  assert.equal(report.normalization.schemaVersion, '2')
+  assert.deepEqual(report.normalization.providers, [])
+  assert.deepEqual(report.normalization.mappings, [])
+  assert.deepEqual(report.normalization.events, [])
+})

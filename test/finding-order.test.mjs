@@ -287,11 +287,8 @@ test('canonical data keys order in code units, through the real binary', async (
   assert.deepEqual(Object.keys(report.normalization.events[0].canonical.data), ['Z', 'a', 'a-b', 'a_b'])
 })
 
-/**
- * Sites 8 and 9 -- the provider list and the mapping list in the report, both
- * declared in the reverse of their code-unit order.
- */
-test('the provider and mapping lists order in code units, through the real binary', async () => {
+/** Catalog source pointers are in declaration order, never ordered by hidden values. */
+test('the provider and mapping catalogs expose declaration positions, not sorted identities', async () => {
   const { code, report } = await normalize(writeJob({
     canonicalVersion: '1',
     providers: [
@@ -310,8 +307,9 @@ test('the provider and mapping lists order in code units, through the real binar
   }))
 
   assert.equal(code, 0)
-  assert.deepEqual(report.normalization.providers, ['Z', 'a', 'a-b', 'a_b'])
-  assert.deepEqual(report.normalization.mappings, ['Z@1@e', 'a-b@1@e', 'a@1@e', 'a_b@1@e'])
+  assert.equal(report.normalization.schemaVersion, '2')
+  assert.deepEqual(report.normalization.providers, ['/providers/0', '/providers/1', '/providers/2', '/providers/3'])
+  assert.deepEqual(report.normalization.mappings, ['/mappings/0', '/mappings/1', '/mappings/2', '/mappings/3'])
 })
 
 /**

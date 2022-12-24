@@ -4,7 +4,7 @@ import process from 'node:process'
 
 import { HARD_LIMITS, exitCodeFor, formatReport, normalizeJobFile, serializeReport } from '../src/index.mjs'
 
-const VERSION = '0.1.0'
+const VERSION = '0.2.0'
 
 const HELP = `webhook-payload-normalizer
 

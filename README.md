@@ -50,6 +50,17 @@ happily overwrite it).
 `--help` lists every option. Exit codes: `0` passed, `1` completed and failed, `2` invalid
 configuration (stdout empty) or evidence that could not be obtained (an `incomplete` report).
 
+Version 0.2.0 keeps the report envelope at `schemaVersion: "1"` but gives its
+`normalization` object (and the optional standalone bundle) `schemaVersion: "2"`.
+In v2, `providers` and `mappings` contain `/providers/N` and
+`/mappings/N` source pointers in job declaration order, rather than raw provider
+names and composite mapping keys. Consumers of the old catalog values should
+follow those pointers into the original job. Exact matching still uses the raw
+declarations internally. Normalized `events` are unchanged: their selected
+provider/version/type/id provenance, canonical data, and preserved extensions
+are intentional output and may contain payload data. Do not treat the bundle
+as a general-purpose redacted export.
+
 ### As a library
 
 ```js

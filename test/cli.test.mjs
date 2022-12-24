@@ -62,7 +62,7 @@ test('-h is --help, and -v prints the version', async () => {
 
   const { code, stdout } = await cli(['-v'])
   assert.equal(code, 0)
-  assert.equal(stdout.trim(), '0.1.0')
+  assert.equal(stdout.trim(), '0.2.0')
 })
 
 test('the documented version matches the package', async () => {

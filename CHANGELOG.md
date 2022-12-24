@@ -126,6 +126,12 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Version 0.2.0 keeps the Edilec report envelope at `schemaVersion: "1"` while versioning the
+  nested normalization object and standalone bundle as `schemaVersion: "2"`. Their provider and
+  mapping catalogs now contain source pointers in declaration order, not raw names or composite
+  keys. This removes unselected catalog identities from successful reports and bundles without
+  changing exact internal selection or the intentionally emitted normalized events. Consumers
+  of the old catalog values must follow the pointers into their original job.
 - `--out` must now resolve inside the job file's own directory. A job normalized as an object
   through `normalizeJob` with no `baseDir` declared no directory, so only the symlink and
   device-and-inode refusals apply to it.
