@@ -368,7 +368,7 @@ function validateMappings(raw, providers, defaultPolicy, limits, problems) {
       problems.push({
         pointer: at,
         ruleId: 'mapping-duplicate',
-        message: `A second mapping claims provider "${sanitize(entry.provider, 60)}" version "${sanitize(entry.version, 40)}" event "${sanitize(entry.sourceType, 60)}", already claimed at /mappings/${seen.get(key)}. Which one applies is not something this tool will guess.`,
+        message: `This mapping duplicates the provider, version and source event identity already claimed at /mappings/${seen.get(key)}. Which one applies is not something this tool will guess.`,
         suggestion: 'Delete one of the two mappings, or give them different source event types.',
       })
       return

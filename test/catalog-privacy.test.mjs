@@ -123,3 +123,31 @@ test('duplicate provider diagnostics identify both source rows without exposing 
   assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
   assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
 })
+
+test('duplicate mapping diagnostics identify both source rows without exposing identity values', async () => {
+  const distinct = withUnusedCatalogIdentities()
+  const good = await normalizeJob(distinct)
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+
+  const duplicate = structuredClone(distinct)
+  duplicate.mappings.push(structuredClone(duplicate.mappings[1]))
+  const report = await normalizeJob(duplicate)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  assert.ok(report.findings.some((row) => row.ruleId === 'no-events-checked'))
+  const finding = report.findings.find((row) => row.ruleId === 'mapping-duplicate'
+    && row.location.pointer === '/mappings/2')
+  assert.ok(finding)
+  assert.match(finding.message, /\/mappings\/1/u)
+  assert.equal(JSON.stringify(report).includes(MAPPING_CANARY), false)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(duplicate)
+  assert.equal(cli.code, 2)
+  assert.equal(JSON.parse(cli.stdout).status, 'incomplete')
+  for (const stream of [cli.stdout, cli.stderr]) {
+    assert.equal(stream.includes(MAPPING_CANARY), false)
+    assert.equal(stream.includes(PROVIDER_CANARY), false)
+  }
+})
