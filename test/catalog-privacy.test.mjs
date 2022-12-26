@@ -33,6 +33,18 @@ function withUnusedCatalogIdentities() {
   return job
 }
 
+async function runCliJob(job) {
+  const base = await mkdtemp(join(tmpdir(), 'webhook-catalog-diagnostic-'))
+  try {
+    const input = join(base, 'job.json')
+    await writeFile(input, JSON.stringify(job))
+    const result = await run(process.execPath, [CLI.pathname, '--job', input]).catch((error) => error)
+    return { code: result.code ?? 0, stdout: result.stdout, stderr: result.stderr }
+  } finally {
+    await rm(base, { recursive: true, force: true })
+  }
+}
+
 test('an unused provider and mapping expose only source pointers while exact event selection stays intact', async () => {
   const control = await normalizeJob(cleanInlineJob())
   const report = await normalizeJob(withUnusedCatalogIdentities())
@@ -85,4 +97,29 @@ test('an invalid job still identifies the nested normalization shape without cat
   assert.deepEqual(report.normalization.providers, [])
   assert.deepEqual(report.normalization.mappings, [])
   assert.deepEqual(report.normalization.events, [])
+})
+
+test('duplicate provider diagnostics identify both source rows without exposing their name', async () => {
+  const distinct = withUnusedCatalogIdentities()
+  const good = await normalizeJob(distinct)
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+
+  const duplicate = structuredClone(distinct)
+  duplicate.providers.push(structuredClone(duplicate.providers[1]))
+  const report = await normalizeJob(duplicate)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  assert.ok(report.findings.some((row) => row.ruleId === 'no-events-checked'))
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/providers/2/name')
+  assert.ok(finding)
+  assert.match(finding.message, /\/providers\/1\/name/u)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(duplicate)
+  assert.equal(cli.code, 2)
+  assert.equal(JSON.parse(cli.stdout).status, 'incomplete')
+  assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
+  assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
 })

@@ -176,13 +176,14 @@ function validateProviders(raw, problems) {
       return
     }
     if (providers.has(entry.name)) {
-      problem(problems, `${at}/name`, `Provider "${sanitize(entry.name, 80)}" is declared more than once.`)
+      problem(problems, `${at}/name`, `This provider is declared more than once; its first declaration is at /providers/${providers.get(entry.name).index}/name.`)
       return
     }
     const versionTokens = pointerField(problems, entry.versionAt, `${at}/versionAt`, '"versionAt"')
     const typeTokens = pointerField(problems, entry.typeAt, `${at}/typeAt`, '"typeAt"')
     if (versionTokens === null || typeTokens === null) return
     providers.set(entry.name, {
+      index,
       name: entry.name,
       versionAt: entry.versionAt,
       typeAt: entry.typeAt,
