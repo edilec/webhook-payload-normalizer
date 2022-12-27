@@ -97,12 +97,12 @@ function problem(problems, pointer, message, suggestion) {
 }
 
 function unknownKeys(problems, record, allowed, prefix) {
-  for (const key of Object.keys(record)) {
+  for (const [index, key] of Object.keys(record).entries()) {
     if (allowed.includes(key)) continue
     problems.push({
-      pointer: `${prefix}/${sanitize(key, 80)}`,
+      pointer: prefix || '/',
       ruleId: 'job-unknown-key',
-      message: `"${sanitize(key, 80)}" is not a key this schema defines, so it was refused rather than ignored.`,
+      message: `The key at member ordinal ${index + 1} is not defined by this schema, so it was refused rather than ignored.`,
       suggestion: `Remove the key, or correct it to one of: ${allowed.join(', ')}.`,
     })
   }

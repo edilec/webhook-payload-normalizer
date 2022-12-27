@@ -151,3 +151,25 @@ test('duplicate mapping diagnostics identify both source rows without exposing i
     assert.equal(stream.includes(PROVIDER_CANARY), false)
   }
 })
+
+test('unknown job keys identify their container and member ordinal without echoing key text', async () => {
+  const control = await normalizeJob(withUnusedCatalogIdentities())
+  assert.equal(control.status, 'pass')
+
+  const job = withUnusedCatalogIdentities()
+  job.providers[0][MAPPING_CANARY] = true
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-unknown-key')
+  assert.ok(finding)
+  assert.equal(finding.location.pointer, '/providers/0')
+  assert.match(finding.message, /member ordinal 4/u)
+  assert.equal(JSON.stringify(report).includes(MAPPING_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(JSON.parse(cli.stdout).status, 'incomplete')
+  assert.equal(cli.stdout.includes(MAPPING_CANARY), false)
+  assert.equal(cli.stderr.includes(MAPPING_CANARY), false)
+})

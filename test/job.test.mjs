@@ -53,19 +53,19 @@ test('a mapping source event name must remain identifiable after safe rendering'
 })
 
 test('an unknown key is refused at every level of the schema', () => {
-  assert.deepEqual(rules({ ...VALID, unknownfields: 'reject' }), ['job-unknown-key /unknownfields'])
-  assert.deepEqual(rules({ ...VALID, providers: [{ ...VALID.providers[0], versionat: '/v' }] }), ['job-unknown-key /providers/0/versionat'])
-  assert.deepEqual(rules({ ...VALID, mappings: [{ ...VALID.mappings[0], unknownfields: 'reject' }] }), ['job-unknown-key /mappings/0/unknownfields'])
+  assert.deepEqual(rules({ ...VALID, unknownfields: 'reject' }), ['job-unknown-key /'])
+  assert.deepEqual(rules({ ...VALID, providers: [{ ...VALID.providers[0], versionat: '/v' }] }), ['job-unknown-key /providers/0'])
+  assert.deepEqual(rules({ ...VALID, mappings: [{ ...VALID.mappings[0], unknownfields: 'reject' }] }), ['job-unknown-key /mappings/0'])
   assert.deepEqual(
     rules({ ...VALID, mappings: [{ ...VALID.mappings[0], fields: [{ from: '/a', to: 'a', as: 'string', Required: false }] }] }),
-    ['job-unknown-key /mappings/0/fields/0/Required'],
+    ['job-unknown-key /mappings/0/fields/0'],
   )
-  assert.deepEqual(rules({ ...VALID, events: [{ ...VALID.events[0], Version: '2' }] }), ['job-unknown-key /events/0/Version'])
+  assert.deepEqual(rules({ ...VALID, events: [{ ...VALID.events[0], Version: '2' }] }), ['job-unknown-key /events/0'])
   assert.deepEqual(
     rules({ ...VALID, equivalence: [{ id: 'g', refs: ['e1', 'e1'], note: 'x' }] }),
-    ['job-unknown-key /equivalence/0/note'],
+    ['job-unknown-key /equivalence/0'],
   )
-  assert.deepEqual(rules({ ...VALID, limits: { maxEvent: 5 } }), ['job-unknown-key /limits/maxEvent'])
+  assert.deepEqual(rules({ ...VALID, limits: { maxEvent: 5 } }), ['job-unknown-key /limits'])
 })
 
 test('the shape of every declared field is checked', () => {
