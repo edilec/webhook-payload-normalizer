@@ -237,7 +237,7 @@ function validateFields(raw, at, problems) {
     return fields
   }
 
-  const seen = new Set()
+  const seen = new Map()
   raw.forEach((entry, index) => {
     const here = `${at}/fields/${index}`
     if (!isRecord(entry)) {
@@ -251,7 +251,7 @@ function validateFields(raw, at, problems) {
       return
     }
     if (seen.has(entry.to)) {
-      problem(problems, `${here}/to`, `Canonical field "${sanitize(entry.to, 80)}" is declared twice in one mapping.`)
+      problem(problems, `${here}/to`, `This canonical field is also declared at ${at}/fields/${seen.get(entry.to)}/to.`)
       return
     }
     if (!SUPPORTED_TYPES.includes(entry.as)) {
@@ -291,7 +291,7 @@ function validateFields(raw, at, problems) {
     const fromTokens = pointerField(problems, entry.from, `${here}/from`, '"from"')
     if (fromTokens === null) return
 
-    seen.add(entry.to)
+    seen.set(entry.to, index)
     fields.push({
       from: entry.from,
       fromTokens,

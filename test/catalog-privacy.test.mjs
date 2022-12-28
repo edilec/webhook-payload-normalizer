@@ -173,3 +173,25 @@ test('unknown job keys identify their container and member ordinal without echoi
   assert.equal(cli.stdout.includes(MAPPING_CANARY), false)
   assert.equal(cli.stderr.includes(MAPPING_CANARY), false)
 })
+
+test('duplicate canonical field diagnostics identify both declarations without field text', async () => {
+  const control = await normalizeJob(withUnusedCatalogIdentities())
+  assert.equal(control.status, 'pass')
+
+  const job = withUnusedCatalogIdentities()
+  const field = { ...job.mappings[0].fields[0], to: PROVIDER_CANARY }
+  job.mappings[0].fields = [field, { ...field, from: '/id' }]
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/mappings/0/fields/1/to')
+  assert.ok(finding)
+  assert.match(finding.message, /\/mappings\/0\/fields\/0\/to/u)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
+  assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
+})
