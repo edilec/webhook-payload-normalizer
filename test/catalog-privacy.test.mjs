@@ -195,3 +195,24 @@ test('duplicate canonical field diagnostics identify both declarations without f
   assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
   assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
 })
+
+test('undeclared mapping provider diagnostics keep the source pointer without its name', async () => {
+  const control = await normalizeJob(cleanInlineJob())
+  assert.equal(control.status, 'pass')
+
+  const job = cleanInlineJob()
+  job.mappings[0].provider = PROVIDER_CANARY
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/mappings/0/provider')
+  assert.ok(finding)
+  assert.match(finding.message, /provider not declared/u)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
+  assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
+})

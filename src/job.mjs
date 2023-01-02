@@ -336,7 +336,7 @@ function validateMappings(raw, providers, defaultPolicy, limits, problems) {
       return
     }
     if (!providers.has(entry.provider)) {
-      problem(problems, `${at}/provider`, `Mapping names provider "${sanitize(entry.provider, 80)}", which "providers" does not declare.`)
+      problem(problems, `${at}/provider`, 'This mapping names a provider not declared in "providers".')
       return
     }
     if (typeof entry.version !== 'string' || !VERSION.test(entry.version)) {
