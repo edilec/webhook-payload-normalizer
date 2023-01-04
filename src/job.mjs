@@ -405,7 +405,7 @@ function validateEvents(raw, limits, problems) {
     entries = raw.slice(0, limits.maxEvents)
   }
 
-  const refs = new Set()
+  const refs = new Map()
   entries.forEach((entry, index) => {
     const at = `/events/${index}`
     if (!isRecord(entry)) {
@@ -419,7 +419,7 @@ function validateEvents(raw, limits, problems) {
       return
     }
     if (refs.has(entry.ref)) {
-      problem(problems, `${at}/ref`, `Fixture ref "${sanitize(entry.ref, 80)}" is used more than once.`)
+      problem(problems, `${at}/ref`, `This fixture ref is also declared at /events/${refs.get(entry.ref)}/ref.`)
       return
     }
     if (typeof entry.provider !== 'string' || !NAME.test(entry.provider)) {
@@ -444,7 +444,7 @@ function validateEvents(raw, limits, problems) {
       problem(problems, `${at}/version`, 'A fixture "version", when declared, must match [A-Za-z0-9][A-Za-z0-9._-]{0,31}.')
       return
     }
-    refs.add(entry.ref)
+    refs.set(entry.ref, index)
     events.push({
       index,
       ref: entry.ref,

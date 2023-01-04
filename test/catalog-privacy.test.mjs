@@ -216,3 +216,28 @@ test('undeclared mapping provider diagnostics keep the source pointer without it
   assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
   assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
 })
+
+test('duplicate fixture ref diagnostics identify both declarations without ref text', async () => {
+  const distinct = cleanInlineJob()
+  distinct.events.push({ ...structuredClone(distinct.events[0]), ref: 'e2' })
+  const control = await normalizeJob(distinct)
+  assert.equal(control.status, 'pass')
+  assert.equal(control.summary.checked, 2)
+
+  const job = structuredClone(distinct)
+  job.events[0].ref = PROVIDER_CANARY
+  job.events[1].ref = PROVIDER_CANARY
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/events/1/ref')
+  assert.ok(finding)
+  assert.match(finding.message, /\/events\/0\/ref/u)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
+  assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
+})
