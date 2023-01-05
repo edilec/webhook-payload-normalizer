@@ -241,3 +241,32 @@ test('duplicate fixture ref diagnostics identify both declarations without ref t
   assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
   assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
 })
+
+test('duplicate equivalence group diagnostics identify both declarations without group id', async () => {
+  const distinct = cleanInlineJob()
+  distinct.events.push({ ...structuredClone(distinct.events[0]), ref: 'e2' })
+  distinct.equivalence = [
+    { id: 'g1', refs: ['acme-order', 'e2'] },
+    { id: 'g2', refs: ['acme-order', 'e2'] },
+  ]
+  const control = await normalizeJob(distinct)
+  assert.equal(control.status, 'pass')
+  assert.equal(control.summary.checked, 2)
+
+  const job = structuredClone(distinct)
+  job.equivalence[0].id = PROVIDER_CANARY
+  job.equivalence[1].id = PROVIDER_CANARY
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/equivalence/1/id')
+  assert.ok(finding)
+  assert.match(finding.message, /\/equivalence\/0\/id/u)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
+  assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
+})

@@ -469,7 +469,7 @@ function validateEquivalence(raw, events, problems) {
     return groups
   }
   const known = new Set(events.map((event) => event.ref))
-  const ids = new Set()
+  const ids = new Map()
 
   raw.forEach((entry, index) => {
     const at = `/equivalence/${index}`
@@ -483,7 +483,7 @@ function validateEquivalence(raw, events, problems) {
       return
     }
     if (ids.has(entry.id)) {
-      problem(problems, `${at}/id`, `Equivalence group id "${sanitize(entry.id, 80)}" is used more than once.`)
+      problem(problems, `${at}/id`, `This equivalence group id is also declared at /equivalence/${ids.get(entry.id)}/id.`)
       return
     }
     if (!Array.isArray(entry.refs) || entry.refs.length < 2) {
@@ -506,7 +506,7 @@ function validateEquivalence(raw, events, problems) {
       }
     }
     if (bad) return
-    ids.add(entry.id)
+    ids.set(entry.id, index)
     groups.push({ index, id: entry.id, refs: [...entry.refs] })
   })
   return groups
