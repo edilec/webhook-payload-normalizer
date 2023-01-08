@@ -495,12 +495,12 @@ function validateEquivalence(raw, events, problems) {
       return
     }
     let bad = false
-    for (const ref of entry.refs) {
+    for (const [refIndex, ref] of entry.refs.entries()) {
       if (typeof ref !== 'string' || !known.has(ref)) {
         problem(
           problems,
-          `${at}/refs`,
-          `Equivalence group names fixture ref "${typeof ref === 'string' ? sanitize(ref, 80) : String(ref)}", which "events" does not declare.`,
+          `${at}/refs/${refIndex}`,
+          'This equivalence reference is not declared by "events".',
         )
         bad = true
       }

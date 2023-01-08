@@ -270,3 +270,28 @@ test('duplicate equivalence group diagnostics identify both declarations without
   assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
   assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
 })
+
+test('unknown equivalence refs identify the source array position without ref text', async () => {
+  const distinct = cleanInlineJob()
+  distinct.events.push({ ...structuredClone(distinct.events[0]), ref: 'e2' })
+  distinct.equivalence = [{ id: 'group', refs: ['acme-order', 'e2'] }]
+  const control = await normalizeJob(distinct)
+  assert.equal(control.status, 'pass')
+  assert.equal(control.summary.checked, 2)
+
+  const job = structuredClone(distinct)
+  job.equivalence[0].refs[1] = PROVIDER_CANARY
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/equivalence/0/refs/1')
+  assert.ok(finding, JSON.stringify(report.findings))
+  assert.match(finding.message, /not declared by "events"/u)
+  assert.equal(JSON.stringify(report).includes(PROVIDER_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(cli.stdout.includes(PROVIDER_CANARY), false)
+  assert.equal(cli.stderr.includes(PROVIDER_CANARY), false)
+})

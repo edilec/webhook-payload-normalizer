@@ -125,7 +125,7 @@ test('two mappings claiming one (provider, version, event) is a refusal, not a r
 
 test('an equivalence group must name at least two fixtures this job declares', () => {
   assert.deepEqual(rules({ ...VALID, equivalence: [{ id: 'g', refs: ['e1'] }] }), ['job-invalid /equivalence/0/refs'])
-  assert.deepEqual(rules({ ...VALID, equivalence: [{ id: 'g', refs: ['e1', 'ghost'] }] }), ['job-invalid /equivalence/0/refs'])
+  assert.deepEqual(rules({ ...VALID, equivalence: [{ id: 'g', refs: ['e1', 'ghost'] }] }), ['job-invalid /equivalence/0/refs/1'])
   assert.deepEqual(
     rules({ ...VALID, equivalence: [{ id: 'g', refs: ['e1', 'e1'] }, { id: 'g', refs: ['e1', 'e1'] }] }),
     ['job-invalid /equivalence/1/id'],
