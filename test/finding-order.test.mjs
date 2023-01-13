@@ -116,11 +116,8 @@ test('findings order by file in code units, through the real binary', async () =
   ])
 })
 
-/**
- * Site 2 -- `location.pointer`, which carries arbitrary user text: an unknown
- * job key becomes the pointer of the finding that refuses it.
- */
-test('findings order by pointer in code units, through the real binary', async () => {
+/** Unknown job keys are located by their container and member ordinals, never by raw key text. */
+test('unknown job keys retain stable member order without becoming report pointers', async () => {
   const { code, report } = await normalize(writeJob({
     canonicalVersion: '1',
     providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
@@ -141,19 +138,19 @@ test('findings order by pointer in code units, through the real binary', async (
 
   assert.equal(code, 2)
   assert.deepEqual(report.findings.map((finding) => finding.location.pointer), [
-    '/Z',
-    '/a',
-    '/a-b',
-    '/a_b',
+    '/',
+    '/',
+    '/',
+    '/',
     '/events',
   ])
+  const unknown = report.findings.filter((finding) => finding.ruleId === 'job-unknown-key')
+  assert.deepEqual(unknown.map((finding) => finding.message.match(/member ordinal ([0-9]+)/u)?.[1]),
+    ['5', '6', '7', '8'])
 })
 
-/**
- * Site 4 -- `message`. Four refusals that share a file, a pointer and a rule
- * id, and differ only in the fixture ref each one quotes.
- */
-test('findings order by message in code units, through the real binary', async () => {
+/** Unknown refs are located by safe array indices, not by the untrusted refs themselves. */
+test('unknown equivalence refs sort by source index without exposing their values', async () => {
   const { code, report, stderr } = await normalize(writeJob({
     canonicalVersion: '1',
     providers: [{ name: 'acme', versionAt: '/api_version', typeAt: '/event' }],
@@ -166,21 +163,24 @@ test('findings order by message in code units, through the real binary', async (
       fields: [{ from: '/data/order_id', to: 'orderId', as: 'string' }],
     }],
     events: [{ ref: 'ok', provider: 'acme', payload: { id: 'A1', api_version: '2', event: 'order_created', data: { order_id: 'O1' } } }],
-    equivalence: [{ id: 'group', refs: ['a_b', 'a', 'a-b', 'Z'] }],
+    equivalence: [{ id: 'group', refs: [
+      'SYNTHETIC_REF_a_b', 'SYNTHETIC_REF_a', 'SYNTHETIC_REF_a-b', 'SYNTHETIC_REF_Z',
+    ] }],
   }))
-  const refused = report.findings.filter((finding) => finding.location.pointer === '/equivalence/0/refs')
+  const refused = report.findings.filter((finding) => finding.location.pointer.startsWith('/equivalence/0/refs/'))
 
   assert.equal(code, 2)
   assert.equal(refused.length, 4)
-  assert.equal(
-    refused[0].message,
-    'Equivalence group names fixture ref "Z", which "events" does not declare.',
-  )
-  assert.deepEqual(refused.map((finding) => finding.message.split('"')[1]), ['Z', 'a', 'a-b', 'a_b'])
+  assert.deepEqual(refused.map((finding) => finding.location.pointer), [
+    '/equivalence/0/refs/0', '/equivalence/0/refs/1',
+    '/equivalence/0/refs/2', '/equivalence/0/refs/3',
+  ])
+  assert.ok(refused.every((finding) => finding.message === 'This equivalence reference is not declared by "events".'))
+  assert.equal(JSON.stringify(report).includes('SYNTHETIC_REF_'), false)
 
-  // And the human summary prints them in that same order, line by line.
-  const printed = stderr.split(String.fromCharCode(10)).filter((line) => line.includes('Equivalence group names fixture ref'))
-  assert.deepEqual(printed.map((line) => line.split('"')[1]), ['Z', 'a', 'a-b', 'a_b'])
+  const printed = stderr.split(String.fromCharCode(10)).filter((line) => line.includes('This equivalence reference'))
+  assert.equal(printed.length, 4)
+  assert.equal(stderr.includes('SYNTHETIC_REF_'), false)
 })
 
 /**
