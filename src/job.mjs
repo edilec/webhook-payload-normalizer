@@ -146,7 +146,6 @@ function pointerField(problems, raw, pointer, what) {
     pointer,
     ruleId: 'mapping-unsupported-construct',
     message: `${what} is not a pointer this tool supports: ${parsed.reason}.`,
-    evidence: typeof raw === 'string' ? sanitize(raw, 120) : undefined,
     suggestion: 'See "The supported pointer subset" in docs/normalization-rules.md.',
   })
   return null
