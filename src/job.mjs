@@ -258,7 +258,6 @@ function validateFields(raw, at, problems) {
         pointer: `${here}/as`,
         ruleId: 'mapping-unsupported-construct',
         message: `"as" must be one of ${SUPPORTED_TYPES.join(', ')}; this tool checks types and converts between none of them.`,
-        evidence: typeof entry.as === 'string' ? sanitize(entry.as, 60) : undefined,
       })
       return
     }
