@@ -273,6 +273,34 @@ test('unsupported field type reports its source without echoing its value', asyn
   assert.equal(JSON.parse(cleanCli.stdout).status, 'pass')
 })
 
+test('unsupported field transform reports its source without echoing its value', async () => {
+  const good = await normalizeJob(cleanInlineJob())
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+
+  const job = cleanInlineJob()
+  job.mappings[0].fields[0].transform = MAPPING_CANARY
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'mapping-unsupported-construct'
+    && row.location.pointer === '/mappings/0/fields/0/transform')
+  assert.ok(finding)
+  assert.match(finding.message, /must be one of/u)
+  assert.equal(JSON.stringify(report).includes(MAPPING_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(JSON.parse(cli.stdout).status, 'incomplete')
+  assert.equal(cli.stdout.includes(MAPPING_CANARY), false)
+  assert.equal(cli.stderr.includes('mapping-unsupported-construct'), true)
+  assert.equal(cli.stderr.includes(MAPPING_CANARY), false)
+
+  const cleanCli = await runCliJob(cleanInlineJob())
+  assert.equal(cleanCli.code, 0)
+  assert.equal(JSON.parse(cleanCli.stdout).status, 'pass')
+})
+
 test('duplicate fixture ref diagnostics identify both declarations without ref text', async () => {
   const distinct = cleanInlineJob()
   distinct.events.push({ ...structuredClone(distinct.events[0]), ref: 'e2' })

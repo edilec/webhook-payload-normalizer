@@ -267,7 +267,6 @@ function validateFields(raw, at, problems) {
         pointer: `${here}/transform`,
         ruleId: 'mapping-unsupported-construct',
         message: `"transform" must be one of ${SUPPORTED_TRANSFORMS.join(', ')}.`,
-        evidence: typeof transform === 'string' ? sanitize(transform, 60) : undefined,
       })
       return
     }
