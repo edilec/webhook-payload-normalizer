@@ -301,6 +301,36 @@ test('unsupported field transform reports its source without echoing its value',
   assert.equal(JSON.parse(cleanCli.stdout).status, 'pass')
 })
 
+test('invalid value-map entry reports its ordinal without echoing its key', async () => {
+  const goodJob = cleanInlineJob()
+  goodJob.mappings[0].fields[0].values = { '2026-01-02T03:04:05Z': 'seen' }
+  const good = await normalizeJob(goodJob)
+  assert.equal(good.status, 'pass')
+  assert.equal(good.summary.checked, 1)
+
+  const job = structuredClone(goodJob)
+  job.mappings[0].fields[0].values[MAPPING_CANARY] = { invalid: true }
+  const report = await normalizeJob(job)
+  assert.equal(report.status, 'incomplete')
+  assert.equal(report.summary.checked, 0)
+  const finding = report.findings.find((row) => row.ruleId === 'job-invalid'
+    && row.location.pointer === '/mappings/0/fields/0/values')
+  assert.ok(finding)
+  assert.match(finding.message, /member ordinal 2/u)
+  assert.equal(JSON.stringify(report).includes(MAPPING_CANARY), false)
+
+  const cli = await runCliJob(job)
+  assert.equal(cli.code, 2)
+  assert.equal(JSON.parse(cli.stdout).status, 'incomplete')
+  assert.equal(cli.stdout.includes(MAPPING_CANARY), false)
+  assert.equal(cli.stderr.includes('job-invalid'), true)
+  assert.equal(cli.stderr.includes(MAPPING_CANARY), false)
+
+  const cleanCli = await runCliJob(goodJob)
+  assert.equal(cleanCli.code, 0)
+  assert.equal(JSON.parse(cleanCli.stdout).status, 'pass')
+})
+
 test('duplicate fixture ref diagnostics identify both declarations without ref text', async () => {
   const distinct = cleanInlineJob()
   distinct.events.push({ ...structuredClone(distinct.events[0]), ref: 'e2' })

@@ -209,14 +209,14 @@ function validateValueMap(raw, at, problems) {
     return null
   }
   const map = new Map()
-  for (const [key, value] of entries) {
+  for (const [index, [key, value]] of entries.entries()) {
     const kind = value === null ? 'null' : typeof value
     if (!['null', 'boolean', 'number', 'string'].includes(kind)) {
-      problem(problems, `${at}/${sanitize(key, 60)}`, 'A "values" entry must map to a string, number, boolean or null.')
+      problem(problems, at, `A "values" entry at member ordinal ${index + 1} must map to a string, number, boolean or null.`)
       continue
     }
     if (kind === 'number' && !Number.isFinite(value)) {
-      problem(problems, `${at}/${sanitize(key, 60)}`, 'A "values" entry must map to a finite number.')
+      problem(problems, at, `A "values" entry at member ordinal ${index + 1} must map to a finite number.`)
       continue
     }
     map.set(key, value)

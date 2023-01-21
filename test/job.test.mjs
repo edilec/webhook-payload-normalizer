@@ -143,8 +143,19 @@ test('values enumerates source strings, so it needs a string source and a real m
   )
   assert.deepEqual(
     rules({ ...VALID, mappings: [{ ...VALID.mappings[0], fields: [{ from: '/a', to: 'a', as: 'string', values: { x: { deep: 1 } } }] }] }),
-    ['job-invalid /mappings/0/fields/0/values/x'],
+    ['job-invalid /mappings/0/fields/0/values'],
   )
+})
+
+test('a non-finite value-map entry names its member ordinal without echoing its key', () => {
+  const job = structuredClone(VALID)
+  job.mappings[0].fields[0].values = { 'token=SYNTHETIC_SECRET_CANARY': Number.POSITIVE_INFINITY }
+  const result = validateJob(job)
+  const problem = result.problems.find((row) => row.pointer === '/mappings/0/fields/0/values')
+  assert.ok(problem)
+  assert.equal(problem.ruleId, 'job-invalid')
+  assert.match(problem.message, /member ordinal 1/u)
+  assert.equal(JSON.stringify(result.problems).includes('SYNTHETIC_SECRET_CANARY'), false)
 })
 
 test('a limit may be lowered or raised to its ceiling, and no further', () => {
