@@ -1,0 +1,52 @@
+{
+  "name": "webhook-payload-normalizer",
+  "version": "0.2.0",
+  "description": "Map versioned provider webhook fixtures into one canonical event shape, preserving source id and version, refusing an unknown version rather than coercing it, and handling unclaimed fields by declared policy.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "lint": "node --check src/index.mjs && node --check src/write-guard.mjs && node --check src/job.mjs && node --check src/normalize.mjs && node --check src/pointer.mjs && node --check src/rules.mjs && node --check src/text.mjs && node --check bin/webhook-payload-normalizer.mjs && node --check test/text.test.mjs && node --check test/pointer.test.mjs && node --check test/job.test.mjs && node --check test/normalize.test.mjs && node --check test/rules-catalog.test.mjs && node --check test/severity-decides.test.mjs && node --check test/severity-incomplete.test.mjs && node --check test/finding-order.test.mjs && node --check test/sanitisation.test.mjs && node --check test/limits.test.mjs && node --check test/incomplete-backstop.test.mjs && node --check test/path-identity.test.mjs && node --check test/destination-guard.test.mjs && node --check test/determinism.test.mjs && node --check test/no-network.test.mjs && node --check test/offline-test-policy.test.mjs && node --check test/support/deny-network.mjs && node --check test/cli.test.mjs && node --check test/catalog-privacy.test.mjs && node --check test/parse-failure.test.mjs",
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=src/**",
+    "example": "node bin/webhook-payload-normalizer.mjs --job examples/clean/job.json",
+    "pack:check": "npm pack --dry-run",
+    "check": "npm run lint && npm test && npm run example && npm run pack:check"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edilec/webhook-payload-normalizer.git"
+  },
+  "bin": {
+    "webhook-payload-normalizer": "./bin/webhook-payload-normalizer.mjs"
+  },
+  "exports": {
+    ".": "./src/index.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "examples",
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "webhook",
+    "normalization",
+    "canonical-event",
+    "schema-mapping",
+    "versioning",
+    "provenance",
+    "deterministic",
+    "cli"
+  ],
+  "author": "Edilec Private Limited",
+  "bugs": {
+    "url": "https://github.com/edilec/webhook-payload-normalizer/issues"
+  },
+  "homepage": "https://github.com/edilec/webhook-payload-normalizer#readme"
+}

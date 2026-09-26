@@ -1,0 +1,13 @@
+{
+  "event_id": "01HQBETA88",
+  "meta": { "schema": "2024-05-01", "region": "eu-west" },
+  "type": "order.created",
+  "occurred_at": "2026-01-02T03:04:05Z",
+  "order": {
+    "reference": "ORD-5521",
+    "amount_minor": 4250,
+    "currency": "USD",
+    "payment_status": "paid",
+    "buyer_name": "  Northwind Trading  "
+  }
+}

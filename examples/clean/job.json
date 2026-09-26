@@ -1,0 +1,48 @@
+{
+  "canonicalVersion": "1",
+  "unknownFields": "preserve",
+  "eventsRoot": "events",
+  "providers": [
+    { "name": "acme", "versionAt": "/api_version", "typeAt": "/event" },
+    { "name": "beta", "versionAt": "/meta/schema", "typeAt": "/type" }
+  ],
+  "mappings": [
+    {
+      "provider": "acme",
+      "version": "2",
+      "sourceType": "order_created",
+      "canonicalType": "order.created",
+      "sourceId": "/id",
+      "fields": [
+        { "from": "/created_at", "to": "occurredAt", "as": "string" },
+        { "from": "/data/order_id", "to": "orderId", "as": "string" },
+        { "from": "/data/total_cents", "to": "amountMinor", "as": "integer" },
+        { "from": "/data/currency", "to": "currency", "as": "string", "transform": "uppercase" },
+        { "from": "/data/customer/name", "to": "customerName", "as": "string", "transform": "trim" },
+        { "from": "/data/state", "to": "status", "as": "string", "values": { "PAID": "paid", "PENDING": "pending" } }
+      ]
+    },
+    {
+      "provider": "beta",
+      "version": "2024-05-01",
+      "sourceType": "order.created",
+      "canonicalType": "order.created",
+      "sourceId": "/event_id",
+      "fields": [
+        { "from": "/occurred_at", "to": "occurredAt", "as": "string" },
+        { "from": "/order/reference", "to": "orderId", "as": "string" },
+        { "from": "/order/amount_minor", "to": "amountMinor", "as": "integer" },
+        { "from": "/order/currency", "to": "currency", "as": "string", "transform": "uppercase" },
+        { "from": "/order/buyer_name", "to": "customerName", "as": "string", "transform": "trim" },
+        { "from": "/order/payment_status", "to": "status", "as": "string", "values": { "paid": "paid", "unpaid": "pending" } }
+      ]
+    }
+  ],
+  "events": [
+    { "ref": "acme-order", "provider": "acme", "version": "2", "file": "acme-order-created.json" },
+    { "ref": "beta-order", "provider": "beta", "file": "beta-order-created.json" }
+  ],
+  "equivalence": [
+    { "id": "order-created", "refs": ["acme-order", "beta-order"] }
+  ]
+}
