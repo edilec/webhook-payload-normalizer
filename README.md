@@ -21,21 +21,23 @@ data enters a system, and a tool that guesses once will guess again.
 ## Install
 
 ```sh
-npm install webhook-payload-normalizer
+npm install github:edilec/webhook-payload-normalizer
 ```
+
+This installs the public GitHub source; `webhook-payload-normalizer` is not published to npm.
 
 ## Use
 
 ```sh
-webhook-payload-normalizer --job examples/clean/job.json
+npx webhook-payload-normalizer --job examples/clean/job.json
 ```
 
 The JSON report goes to stdout and nothing else goes there, so it pipes straight into a parser. The
 human summary and diagnostics go to stderr — a non-empty stderr is normal.
 
 ```sh
-webhook-payload-normalizer --job job.json --json > report.json
-webhook-payload-normalizer --job job.json --out bundle.json
+npx webhook-payload-normalizer --job job.json --json > report.json
+npx webhook-payload-normalizer --job job.json --out bundle.json
 ```
 
 `--out` writes the normalized events as a bundle, and only when the run passes. The destination is
